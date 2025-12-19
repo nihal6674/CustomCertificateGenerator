@@ -1,7 +1,8 @@
-const mongoose=require('mongoose')
 
-const connectDb=async()=>{
-    await mongoose.connect("mongodb+srv://admin:Ojqz6mpkFWziidG6@cluster0.6mfqdtb.mongodb.net/CustomCertificateGenerator?appName=Cluster0");
-}
+const mongoose = require('mongoose');
 
-module.exports=connectDb;
+const connectDB = async () => {
+  await mongoose.connect(process.env.MONGO_URI);
+};
+
+module.exports = connectDB;

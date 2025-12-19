@@ -66,3 +66,5 @@ coverage/
 # --- Next.js (if used) ---
 .next/
 out/
+
+uploads/
