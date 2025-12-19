@@ -13,7 +13,14 @@ const templateSchema = new mongoose.Schema(
       unique: true
     },
 
-    templateFilePath: {
+    // Original uploaded DOCX (reference / audit)
+    docxFilePath: {
+      type: String,
+      required: true
+    },
+
+    // Converted HTML (USED for certificate generation)
+    htmlFilePath: {
       type: String,
       required: true
     },
