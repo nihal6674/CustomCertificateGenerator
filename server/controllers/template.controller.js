@@ -39,36 +39,108 @@ exports.getTemplates = async (req, res) => {
   res.json(templates);
 };
 
-// Update template
+// Update template (ALL editable fields)
 exports.updateTemplate = async (req, res) => {
-  const template = await Template.findById(req.params.id);
-  if (!template) return res.status(404).json({ message: 'Template not found' });
+  try {
+    const template = await Template.findById(req.params.id);
+    if (!template) {
+      return res.status(404).json({ message: "Template not found" });
+    }
 
-  if (req.files?.template) {
-    template.templateFilePath = await saveFile(req.files.template[0], 'templates');
+    // 📄 Update DOCX template file
+    if (req.files?.template?.[0]) {
+      template.templateFilePath = await saveFile(
+        req.files.template[0],
+        "templates"
+      );
+    }
+
+    // ✍️ Update instructor signature
+    if (req.files?.signature?.[0]) {
+      template.instructorSignaturePath = await saveFile(
+        req.files.signature[0],
+        "signatures"
+      );
+    }
+
+    // 📝 Update text fields
+    if (req.body.templateName !== undefined) {
+      template.templateName = req.body.templateName;
+    }
+
+    if (req.body.className !== undefined) {
+      template.className = req.body.className;
+    }
+
+    if (req.body.instructorName !== undefined) {
+      template.instructorName = req.body.instructorName;
+    }
+
+    if (req.body.active !== undefined) {
+      template.active = req.body.active === "true" || req.body.active === true;
+    }
+
+    await template.save();
+
+    res.json({
+      message: "Template updated",
+      template,
+    });
+  } catch (error) {
+    console.error(error);
+
+    // Handle unique className error cleanly
+    if (error.code === 11000) {
+      return res.status(400).json({
+        message: "Class name must be unique",
+      });
+    }
+
+    res.status(500).json({ message: "Server error" });
   }
-
-  if (req.files?.signature) {
-    template.instructorSignaturePath = await saveFile(req.files.signature[0], 'signatures');
-  }
-
-  if (req.body.instructorName) {
-    template.instructorName = req.body.instructorName;
-  }
-
-  await template.save();
-  res.json({ message: 'Template updated' });
 };
 
-// Deactivate template
+
+// Deactivate / Activate template (TOGGLE) — name unchanged
 exports.deactivateTemplate = async (req, res) => {
-  const template = await Template.findById(req.params.id);
-  if (!template) return res.status(404).json({ message: 'Template not found' });
+  try {
+    const template = await Template.findById(req.params.id);
 
-  template.active = false;
-  await template.save();
+    if (!template) {
+      return res.status(404).json({ message: "Template not found" });
+    }
 
-  res.json({ message: 'Template deactivated' });
+    // 🔁 Toggle active status
+    template.active = !template.active;
+    await template.save();
+
+    return res.json({
+      message: template.active
+        ? "Template activated"
+        : "Template deactivated",
+      active: template.active,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+
+// Get only ACTIVE templates (for staff certificate issue dropdown)
+exports.getActiveTemplates = async (req, res) => {
+  try {
+    const templates = await Template.find({ active: true }).select(
+      "_id templateName className instructorName"
+    );
+
+    res.json({
+      templates,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
 };
 
 

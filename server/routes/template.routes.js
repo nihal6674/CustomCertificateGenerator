@@ -33,4 +33,11 @@ router.patch(
 
 router.patch('/:id/deactivate', auth, role('ADMIN'), controller.deactivateTemplate);
 
+/* ---------------- ACTIVE TEMPLATES (STAFF + ADMIN) ---------------- */
+router.get(
+  "/active",
+  auth,
+  role("ADMIN", "STAFF"),
+  controller.getActiveTemplates
+);
 module.exports = router;

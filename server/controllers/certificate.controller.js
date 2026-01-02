@@ -5,93 +5,107 @@ const XLSX = require("xlsx");
 const BulkJob = require("../models/BulkJob");
 
 const generateCertificateNumber = require('../utils/certificateNumber');
+const formatCertificateNumber = require('../utils/formatCertificateNumber')
 const generateDocx = require('../utils/docxGenerator');
 const generateQR = require('../utils/qrGenerator');
 const fs = require("fs");
 const convertToPdf = require("../utils/docxToPdf");
+const uploadToR2 = require("../utils/uploadToR2");
+
 // const addWatermark = require("../utils/addWatermark");
 const normalizeDate = require("../utils/normalizeDate");
-
 
 exports.issueSingleCertificate = async (req, res) => {
   try {
     console.log(req.body);
-    const { firstName, lastName, className, trainingDate } = req.body;
 
+    const {
+      firstName,
+      middleName, // ✅ optional
+      lastName,
+      className,
+      trainingDate,
+    } = req.body;
+
+    // ---------------- VALIDATION ----------------
     if (!firstName || !lastName || !className || !trainingDate) {
-      return res.status(400).json({ message: 'Missing required fields' });
+      return res.status(400).json({ message: "Missing required fields" });
     }
 
-    // 1️⃣ Prevent duplicate certificate
+    // ---------------- DUPLICATE CHECK ----------------
+    // middleName intentionally NOT included
     const existing = await Certificate.findOne({
       firstName,
       lastName,
-      className
+      className,
     });
 
     if (existing) {
       return res.status(400).json({
-        message: 'Certificate already exists for this student and class'
+        message: "Certificate already exists for this student and class",
       });
     }
 
-    // 2️⃣ Fetch active template
+    // ---------------- FETCH TEMPLATE ----------------
     const template = await Template.findOne({
       className,
-      active: true
+      active: true,
     });
 
     if (!template) {
       return res.status(404).json({
-        message: 'No active template found for this class'
+        message: "No active template found for this class",
       });
     }
 
-    // 3️⃣ Generate certificate number
-    const certificateNumber = await generateCertificateNumber();
-    
-    console.log("Certificate Number", certificateNumber)
-    // 4️⃣ Generate QR code
-    const qrBuffer = await generateQR(certificateNumber);
-    
-    // Signature MUST be a Buffer
-if (!template.instructorSignaturePath) {
-  throw new Error("Instructor signature path missing in template");
-}
+    // ---------------- CERTIFICATE NUMBER ----------------
+    const baseCertNumber = await generateCertificateNumber();
 
-const instructorSignatureBuffer = fs.readFileSync(
-  template.instructorSignaturePath
-);
-    
-    // 5️⃣ Prepare DOCX data
+    const certificateNumber = formatCertificateNumber({
+      certNumber: baseCertNumber,
+      firstName,
+      middleName: middleName || null,
+      lastName,
+    });
+
+    console.log("Certificate Number:", certificateNumber);
+
+    // ---------------- QR CODE ----------------
+    const qrBuffer = await generateQR(baseCertNumber);
+
+    // ---------------- SIGNATURE ----------------
+    if (!template.instructorSignaturePath) {
+      throw new Error("Instructor signature path missing in template");
+    }
+
+    const instructorSignatureBuffer = fs.readFileSync(
+      template.instructorSignaturePath
+    );
+
+    // ---------------- DOCX DATA ----------------
     const docxData = {
       first_name: firstName,
+      middle_name: middleName || "", // ✅ safe for template
       last_name: lastName,
       class_name: className,
       training_date: trainingDate,
-      issue_date: new Date().toISOString().split('T')[0],
-      certificate_number: certificateNumber,
+      issue_date: new Date().toISOString().split("T")[0],
+      certificate_number: baseCertNumber,
       instructor_name: template.instructorName,
       qr_code: qrBuffer,
-      instructor_signature: instructorSignatureBuffer // Buffer
-
+      instructor_signature: instructorSignatureBuffer,
     };
 
-    // 6️⃣ Generate DOCX
+    // ---------------- TEMP FILE ----------------
+    const tempId = `${certificateNumber}-${Date.now()}`;
+
     const outputDocxPath = path.join(
       __dirname,
-      '..',
-      'uploads',
-      'certificates',
-      `${certificateNumber}.docx`
+      "..",
+      "uploads",
+      "certificates",
+      `${tempId}.docx`
     );
-
-    console.log("QR buffer:", Buffer.isBuffer(qrBuffer));
-console.log(
-  "Signature buffer:",
-  Buffer.isBuffer(instructorSignatureBuffer)
-);
-
 
     generateDocx(
       template.templateFilePath,
@@ -99,38 +113,51 @@ console.log(
       outputDocxPath
     );
 
+    // ---------------- PDF CONVERSION ----------------
+    // ---------------- PDF CONVERSION ----------------
+    const pdfLocalPath = await convertToPdf(outputDocxPath);
 
-    // Convert to PDF
-const pdfPath = await convertToPdf(outputDocxPath);
+    // 🔹 R2 object key (folder structure)
+    const r2Key = `certificates/${certificateNumber}.pdf`;
 
-// Add watermark
-// await addWatermark(pdfPath, certificateNumber);
-fs.unlinkSync(outputDocxPath);
+    // 🔹 Upload to Cloudflare R2
+    await uploadToR2({
+      filePath: pdfLocalPath,
+      key: r2Key,
+    });
 
-    // 7️⃣ Save certificate record (PDF step comes later)
+    // 🔹 Cleanup local temp files
+    if (fs.existsSync(outputDocxPath)) {
+      fs.unlinkSync(outputDocxPath);
+    }
+    if (fs.existsSync(pdfLocalPath)) {
+      fs.unlinkSync(pdfLocalPath);
+    }
+
+
+    // ---------------- SAVE CERTIFICATE ----------------
     const certificate = await Certificate.create({
-      certificateNumber,
+      certificateNumber: baseCertNumber,
       firstName,
+      middleName: middleName || null, // ✅ stored
       lastName,
       className,
       trainingDate,
       issueDate: new Date(),
       instructorName: template.instructorName,
       templateId: template._id,
-      pdfFilePath: pdfPath // will be filled after PDF step
+      pdfFilePath: r2Key,
     });
 
     res.status(201).json({
-      message: 'Certificate issued successfully',
-      certificate
+      message: "Certificate issued successfully",
+      certificate,
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: "Server error" });
   }
 };
-
-
 
 exports.issueBulkCertificates = async (req, res) => {
   try {
@@ -149,28 +176,42 @@ exports.issueBulkCertificates = async (req, res) => {
     // 1️⃣ Create bulk job
     const job = await BulkJob.create({
       total: rows.length,
+      processed: 0,
+      success: 0,
+      failed: 0,
+      errors: [],
+      status: "PROCESSING",
     });
 
-    // 2️⃣ Respond immediately (frontend starts polling)
+    // 2️⃣ Respond immediately
     res.status(202).json({
       message: "Bulk certificate generation started",
       jobId: job._id,
       total: rows.length,
     });
 
-    // 3️⃣ Process in background
+    // 3️⃣ Background processing
     process.nextTick(async () => {
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
 
         try {
-          const { firstName, lastName, className } = row;
+          const {
+            firstName,
+            middleName, // ✅ optional
+            lastName,
+            className,
+          } = row;
+
           const trainingDate = normalizeDate(row.trainingDate);
 
+          // ---------------- VALIDATION ----------------
           if (!firstName || !lastName || !className || !trainingDate) {
             throw new Error("Missing or invalid required fields");
           }
 
+          // ---------------- DUPLICATE CHECK ----------------
+          // middleName intentionally ignored
           const existing = await Certificate.findOne({
             firstName,
             lastName,
@@ -181,57 +222,95 @@ exports.issueBulkCertificates = async (req, res) => {
             throw new Error("Certificate already exists");
           }
 
+          // ---------------- TEMPLATE ----------------
           const template = await Template.findOne({
             className,
             active: true,
           });
 
           if (!template || !template.instructorSignaturePath) {
-            throw new Error("Template or instructor signature missing");
+            throw new Error(
+              "Template or instructor signature is not valid/active"
+            );
           }
 
-          const certificateNumber = await generateCertificateNumber();
-          const qrBuffer = await generateQR(certificateNumber);
+          // ---------------- CERTIFICATE NUMBER ----------------
+          const baseCertNumber = await generateCertificateNumber();
+
+          const certificateNumber = formatCertificateNumber({
+            certNumber: baseCertNumber,
+            firstName,
+            middleName: middleName || null,
+            lastName,
+          });
+
+          // ---------------- QR CODE ----------------
+          const qrBuffer = await generateQR(baseCertNumber);
 
           const instructorSignatureBuffer = fs.readFileSync(
             template.instructorSignaturePath
           );
 
+          // ---------------- DOCX DATA ----------------
           const docxData = {
             first_name: firstName,
+            middle_name: middleName || "", // ✅ safe for DOCX
             last_name: lastName,
+            class_name: className,
             training_date: trainingDate,
             issue_date: new Date().toISOString().split("T")[0],
-            certificate_number: certificateNumber,
+            certificate_number: baseCertNumber,
             instructor_name: template.instructorName,
             qr_code: qrBuffer,
             instructor_signature: instructorSignatureBuffer,
           };
+
+          // ---------------- TEMP FILE ----------------
+          const tempId = `${certificateNumber}-${Date.now()}-${i}`;
 
           const outputDocxPath = path.join(
             __dirname,
             "..",
             "uploads",
             "certificates",
-            `${certificateNumber}.docx`
+            `${tempId}.docx`
           );
 
-          generateDocx(template.templateFilePath, docxData, outputDocxPath);
+          generateDocx(
+            template.templateFilePath,
+            docxData,
+            outputDocxPath
+          );
 
-          const pdfPath = await convertToPdf(outputDocxPath);
-          // await addWatermark(pdfPath, certificateNumber);
-          fs.unlinkSync(outputDocxPath);
+          // ---------------- PDF ----------------
+          const pdfLocalPath = await convertToPdf(outputDocxPath);
 
+          // R2 object key (clean naming)
+          const r2Key = `certificates/${certificateNumber}.pdf`;
+
+          // Upload to Cloudflare R2
+          await uploadToR2({
+            filePath: pdfLocalPath,
+            key: r2Key,
+          });
+
+          // Cleanup temp files
+          if (fs.existsSync(outputDocxPath)) fs.unlinkSync(outputDocxPath);
+          if (fs.existsSync(pdfLocalPath)) fs.unlinkSync(pdfLocalPath);
+
+
+          // ---------------- SAVE CERTIFICATE ----------------
           await Certificate.create({
-            certificateNumber,
+            certificateNumber: baseCertNumber,
             firstName,
+            middleName: middleName || null, // ✅ stored
             lastName,
             className,
             trainingDate,
             issueDate: new Date(),
             instructorName: template.instructorName,
             templateId: template._id,
-            pdfFilePath: pdfPath,
+            pdfFilePath: r2Key,
           });
 
           await BulkJob.findByIdAndUpdate(job._id, {
@@ -241,26 +320,31 @@ exports.issueBulkCertificates = async (req, res) => {
           await BulkJob.findByIdAndUpdate(job._id, {
             $inc: { processed: 1, failed: 1 },
             $push: {
-  errorss: {
-    rowNumber: i + 2,
-    rowData: row,
-    error: err.message
-  }
-}
-,
+              errors: {
+                rowNumber: i + 2,   // Excel row number
+                rowData: row,
+                error: err.message,
+                resolved: false,
+              },
+            },
           });
         }
       }
 
+      // 4️⃣ Final status
+      const finalJob = await BulkJob.findById(job._id);
+
       await BulkJob.findByIdAndUpdate(job._id, {
-        status: "COMPLETED",
+        status:
+          finalJob.errors.length > 0
+            ? "COMPLETED_WITH_ERRORS"
+            : "COMPLETED",
       });
     });
   } catch (err) {
     console.error(err);
   }
 };
-
 
 exports.getBulkJobStatus = async (req, res) => {
   const job = await BulkJob.findById(req.params.jobId);
@@ -279,7 +363,6 @@ exports.getBulkJobStatus = async (req, res) => {
   });
 };
 
-
 exports.reissueFailedCertificates = async (req, res) => {
   try {
     const { jobId } = req.params;
@@ -290,7 +373,7 @@ exports.reissueFailedCertificates = async (req, res) => {
       return res.status(404).json({ message: "Bulk job not found" });
     }
 
-    const unresolvedErrors = job.errors.filter(e => !e.resolved);
+    const unresolvedErrors = job.errors.filter((e) => !e.resolved);
 
     if (!unresolvedErrors.length) {
       return res.json({ message: "No failed certificates to re-issue" });
@@ -304,14 +387,23 @@ exports.reissueFailedCertificates = async (req, res) => {
       const row = errorItem.rowData;
 
       try {
-        const { firstName, lastName, className, trainingDate } = row;
+        const {
+          firstName,
+          middleName, // ✅ optional
+          lastName,
+          className,
+          trainingDate,
+        } = row;
+
         const normalizedDate = normalizeDate(trainingDate);
 
+        // ---------------- VALIDATION ----------------
         if (!firstName || !lastName || !className || !normalizedDate) {
-          throw new Error("Invalid data");
+          throw new Error("Invalid or missing required data");
         }
 
-        // Prevent duplicate issuance
+        // ---------------- DUPLICATE CHECK ----------------
+        // middleName intentionally ignored
         const existing = await Certificate.findOne({
           firstName,
           lastName,
@@ -322,60 +414,96 @@ exports.reissueFailedCertificates = async (req, res) => {
           throw new Error("Certificate already exists");
         }
 
+        // ---------------- TEMPLATE ----------------
         const template = await Template.findOne({
           className,
           active: true,
         });
 
         if (!template || !template.instructorSignaturePath) {
-          throw new Error("Template or signature missing");
+          throw new Error("Template or instructor signature missing");
         }
 
-        const certificateNumber = await generateCertificateNumber();
-        const qrBuffer = await generateQR(certificateNumber);
+        // ---------------- CERTIFICATE NUMBER ----------------
+        const baseCertNumber = await generateCertificateNumber();
+
+        const certificateNumber = formatCertificateNumber({
+          certNumber: baseCertNumber,
+          firstName,
+          middleName: middleName || null,
+          lastName,
+        });
+
+        // ---------------- QR CODE ----------------
+        const qrBuffer = await generateQR(baseCertNumber);
 
         const instructorSignatureBuffer = fs.readFileSync(
           template.instructorSignaturePath
         );
 
+        // ---------------- DOCX DATA ----------------
         const docxData = {
           first_name: firstName,
+          middle_name: middleName || "",
           last_name: lastName,
+          class_name: className,
           training_date: normalizedDate,
           issue_date: new Date().toISOString().split("T")[0],
-          certificate_number: certificateNumber,
+          certificate_number: baseCertNumber,
           instructor_name: template.instructorName,
           qr_code: qrBuffer,
           instructor_signature: instructorSignatureBuffer,
         };
+
+        // ---------------- TEMP FILE ----------------
+        const tempId = `${certificateNumber}-${Date.now()}-${i}`;
 
         const outputDocxPath = path.join(
           __dirname,
           "..",
           "uploads",
           "certificates",
-          `${certificateNumber}.docx`
+          `${tempId}.docx`
         );
 
-        generateDocx(template.templateFilePath, docxData, outputDocxPath);
+        generateDocx(
+          template.templateFilePath,
+          docxData,
+          outputDocxPath
+        );
 
-        const pdfPath = await convertToPdf(outputDocxPath);
-        // await addWatermark(pdfPath, certificateNumber);
-        fs.unlinkSync(outputDocxPath);
+        // ---------------- PDF ----------------
+const pdfLocalPath = await convertToPdf(outputDocxPath);
 
+// Clean R2 object key
+const r2Key = `certificates/${certificateNumber}.pdf`;
+
+// Upload to Cloudflare R2
+await uploadToR2({
+  filePath: pdfLocalPath,
+  key: r2Key,
+});
+
+// Cleanup temp files
+if (fs.existsSync(outputDocxPath)) fs.unlinkSync(outputDocxPath);
+if (fs.existsSync(pdfLocalPath)) fs.unlinkSync(pdfLocalPath);
+
+
+        // ---------------- SAVE CERTIFICATE ----------------
         await Certificate.create({
-          certificateNumber,
+          certificateNumber: baseCertNumber,
           firstName,
+          middleName: middleName || null,
           lastName,
           className,
           trainingDate: normalizedDate,
           issueDate: new Date(),
           instructorName: template.instructorName,
           templateId: template._id,
-          pdfFilePath: pdfPath,
+          pdfFilePath: r2Key,
         });
 
-        // ✅ Mark error as resolved
+        // ---------------- MARK RESOLVED ----------------
         errorItem.resolved = true;
         errorItem.error = "Resolved successfully";
 
@@ -401,8 +529,6 @@ exports.reissueFailedCertificates = async (req, res) => {
   }
 };
 
-
-
 exports.exportFailedBulkRows = async (req, res) => {
   try {
     const { jobId } = req.params;
@@ -413,7 +539,7 @@ exports.exportFailedBulkRows = async (req, res) => {
       return res.status(404).json({ message: "Bulk job not found" });
     }
 
-    const failedRows = job.errors.filter(e => !e.resolved);
+    const failedRows = job.errors.filter((e) => !e.resolved);
 
     if (!failedRows.length) {
       return res.status(400).json({
@@ -421,24 +547,55 @@ exports.exportFailedBulkRows = async (req, res) => {
       });
     }
 
-    // Prepare rows for Excel
-    const excelRows = failedRows.map(e => ({
-      ...e.rowData,
-      error: e.error, // append error reason
-    }));
+    /* ---------------- DATE FORMATTER ---------------- */
+    const toMMDDYYYY = (value) => {
+      // Excel serial date
+      if (typeof value === "number" && value > 30000 && value < 60000) {
+        const utc_days = Math.floor(value - 25569);
+        const date = new Date(utc_days * 86400 * 1000);
+        return formatDate(date);
+      }
 
-    // Create workbook
+      // JS Date object
+      if (value instanceof Date && !isNaN(value)) {
+        return formatDate(value);
+      }
+
+      return value;
+    };
+
+    const formatDate = (date) => {
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const year = date.getFullYear();
+      return `${month}/${day}/${year}`;
+    };
+
+    /* ---------------- CLEAN ROW DATA ---------------- */
+    const excelRows = failedRows.map((e) => {
+      const cleanedRow = {};
+
+      for (const key in e.rowData) {
+        cleanedRow[key] = toMMDDYYYY(e.rowData[key]);
+      }
+
+      // Append error reason
+      cleanedRow.error = e.error;
+
+      return cleanedRow;
+    });
+
+    /* ---------------- CREATE EXCEL ---------------- */
     const worksheet = XLSX.utils.json_to_sheet(excelRows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Failed Rows");
 
-    // Write to buffer
     const buffer = XLSX.write(workbook, {
       type: "buffer",
       bookType: "xlsx",
     });
 
-    // Send file
+    /* ---------------- SEND FILE ---------------- */
     res.setHeader(
       "Content-Disposition",
       `attachment; filename=bulk_failed_rows_${jobId}.xlsx`
@@ -456,6 +613,7 @@ exports.exportFailedBulkRows = async (req, res) => {
 };
 
 
+
 exports.verifyCertificate = async (req, res) => {
   try {
     const certificateNumber = req.params.certificateNumber.trim();
@@ -469,7 +627,16 @@ exports.verifyCertificate = async (req, res) => {
       });
     }
 
-    // 🔴 Revocation check using STATUS
+    // Helper to format full name safely
+    const fullName = [
+      certificate.firstName,
+      certificate.middleName, // optional
+      certificate.lastName,
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    // 🔴 Revocation check
     if (certificate.status === "REVOKED") {
       return res.status(200).json({
         valid: false,
@@ -477,18 +644,18 @@ exports.verifyCertificate = async (req, res) => {
         status: certificate.status,
         message: "This certificate has been revoked",
         certificateNumber: certificate.certificateNumber,
-        studentName: `${certificate.firstName} ${certificate.lastName}`,
+        studentName: fullName,
         className: certificate.className,
       });
     }
 
     // ✅ Valid certificate
-    res.status(200).json({
+    return res.status(200).json({
       valid: true,
       revoked: false,
       status: certificate.status,
       certificateNumber: certificate.certificateNumber,
-      studentName: `${certificate.firstName} ${certificate.lastName}`,
+      studentName: fullName,
       className: certificate.className,
       trainingDate: certificate.trainingDate,
       issueDate: certificate.issueDate,
@@ -502,6 +669,7 @@ exports.verifyCertificate = async (req, res) => {
     });
   }
 };
+
 
 exports.toggleCertificateStatus = async (req, res) => {
   try {
@@ -540,65 +708,57 @@ exports.toggleCertificateStatus = async (req, res) => {
 
 exports.getCertificates = async (req, res) => {
   try {
-    const {
-      search,
-      status,
-      page = 1,
-      limit = 10
-    } = req.query;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const searchRaw = (req.query.search || "").trim();
 
-    const role = req.user.role; // ADMIN or STAFF
+    const skip = (page - 1) * limit;
+
+    /* ---------------- SEARCH QUERY ---------------- */
     const query = {};
 
-    // 🔍 Search logic
-    if (search) {
-      const regex = new RegExp(search.trim(), "i");
-      query.$or = [
-        { certificateNumber: regex },
-        { firstName: regex },
-        { lastName: regex }
-      ];
+    // Escape regex special characters
+    const escapeRegex = (text) =>
+      text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+    if (searchRaw) {
+      const parts = searchRaw
+        .split(/\s+/)       // split by spaces
+        .map(escapeRegex); // escape regex chars
+
+      query.$and = parts.map((part) => ({
+        $or: [
+          { firstName: { $regex: part, $options: "i" } },
+          { middleName: { $regex: part, $options: "i" } }, // ✅ ADDED
+          { lastName: { $regex: part, $options: "i" } },
+          { className: { $regex: part, $options: "i" } },
+          { certificateNumber: { $regex: part, $options: "i" } },
+          { instructorName: { $regex: part, $options: "i" } },
+        ],
+      }));
     }
 
-    // 🔘 Status filter
-    if (status && ["ISSUED", "REVOKED"].includes(status)) {
-      query.status = status;
-    }
-
-    const skip = (Number(page) - 1) * Number(limit);
-
-    // 🔐 Role-based projection
-    let projection = {};
-
-    if (role === "STAFF") {
-      projection = {
-        pdfFilePath: 0,     // hide
-        templateId: 0,      // hide internal
-        __v: 0
-      };
-    }
-
-    // ADMIN sees everything (no projection)
-
+    /* ---------------- FETCH DATA ---------------- */
     const [certificates, total] = await Promise.all([
-      Certificate.find(query, projection)
+      Certificate.find(query)
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(Number(limit)),
-      Certificate.countDocuments(query)
+        .limit(limit),
+
+      Certificate.countDocuments(query),
     ]);
 
     res.json({
       total,
-      page: Number(page),
-      limit: Number(limit),
-      certificates
+      page,
+      limit,
+      certificates,
     });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({
-      message: "Failed to fetch certificates"
-    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
   }
 };
+
+
 

@@ -1,41 +1,78 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const certificateSchema = new mongoose.Schema(
   {
     certificateNumber: {
       type: String,
-      unique: true
+      unique: true,
+      required: true,
     },
 
-    firstName: String,
-    lastName: String,
-    className: String,
+    firstName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
 
-    trainingDate: Date,
-    issueDate: Date,
+    // ✅ OPTIONAL
+    middleName: {
+      type: String,
+      trim: true,
+      default: null,
+    },
 
-    instructorName: String,
+    lastName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+
+    className: {
+      type: String,
+      required: true,
+    },
+
+    trainingDate: {
+      type: Date,
+      required: true,
+    },
+
+    issueDate: {
+      type: Date,
+      required: true,
+    },
+
+    instructorName: {
+      type: String,
+      required: true,
+    },
 
     templateId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Template'
+      ref: "Template",
+      required: true,
     },
 
-    pdfFilePath: String,
+    pdfFilePath: {
+      type: String,
+      required: true,
+    },
 
     status: {
       type: String,
-      enum: ['ISSUED', 'REVOKED'],
-      default: 'ISSUED'
-    }
+      enum: ["ISSUED", "REVOKED"],
+      default: "ISSUED",
+    },
   },
   { timestamps: true }
 );
 
-// Prevent duplicate certificates
+/* ---------------- INDEXES ---------------- */
+
+// Prevent duplicate certificates (middleName ignored on purpose)
 certificateSchema.index(
   { firstName: 1, lastName: 1, className: 1 },
   { unique: true }
 );
 
-module.exports = mongoose.model('Certificate', certificateSchema);
+module.exports = mongoose.model("Certificate", certificateSchema);
