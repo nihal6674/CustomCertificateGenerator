@@ -115,6 +115,12 @@ exports.issueSingleCertificate = async (req, res) => {
     const uploadsDir = path.join(__dirname, "..", "uploads", "certificates");
 fs.mkdirSync(uploadsDir, { recursive: true });
 
+console.log("QR TYPE:", qrBuffer?.constructor?.name);
+console.log("SIGN TYPE:", instructorSignatureBuffer?.constructor?.name);
+console.log("QR IS BUFFER:", Buffer.isBuffer(qrBuffer));
+console.log("SIGN IS BUFFER:", Buffer.isBuffer(instructorSignatureBuffer));
+
+
     generateDocx(templateBuffer, docxData, outputDocxPath);
 
     /* ---------------- PDF ---------------- */
