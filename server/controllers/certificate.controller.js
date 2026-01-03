@@ -27,10 +27,15 @@ exports.issueSingleCertificate = async (req, res) => {
       trainingDate,
     } = req.body;
 
+    const normalizedTrainingDate = normalizeDate(trainingDate);
+
     /* ---------------- VALIDATION ---------------- */
-    if (!firstName || !lastName || !className || !trainingDate) {
-      return res.status(400).json({ message: "Missing required fields" });
-    }
+    if (!firstName || !lastName || !className || !normalizedTrainingDate) {
+  return res.status(400).json({
+    message: "Missing or invalid training date",
+  });
+}
+
 
     /* ---------------- DUPLICATE CHECK ---------------- */
     const existing = await Certificate.findOne({
@@ -90,7 +95,7 @@ exports.issueSingleCertificate = async (req, res) => {
       middle_name: middleName || "",
       last_name: lastName,
       class_name: className,
-      training_date: trainingDate,
+      training_date: normalizedTrainingDate,
       issue_date: new Date().toISOString().split("T")[0],
       certificate_number: baseCertNumber,
       instructor_name: template.instructorName,
@@ -137,7 +142,7 @@ exports.issueSingleCertificate = async (req, res) => {
       middleName: middleName || null,
       lastName,
       className,
-      trainingDate,
+      normalizedTrainingDate,
       issueDate: new Date(),
       instructorName: template.instructorName,
       templateId: template._id,
