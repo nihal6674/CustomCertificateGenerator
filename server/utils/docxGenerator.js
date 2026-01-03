@@ -4,30 +4,29 @@ const PizZip = require("pizzip");
 const Docxtemplater = require("docxtemplater");
 const ImageModule = require("docxtemplater-image-module-free");
 
+const EMPTY_IMAGE = fs.readFileSync(
+  path.join(__dirname, "../assets/empty.png")
+);
+
 module.exports = function generateDocx(
-  templateSource,   // Buffer OR file path
+  templateSource,
   data,
   outputPath
 ) {
-  /* ---------------- TEMPLATE LOAD ---------------- */
   const templateBuffer = Buffer.isBuffer(templateSource)
     ? templateSource
-    : fs.readFileSync(templateSource); // ✅ BUFFER ONLY
+    : fs.readFileSync(templateSource);
 
   const zip = new PizZip(templateBuffer);
 
-  /* ---------------- IMAGE MODULE ---------------- */
   const imageModule = new ImageModule({
-    centered: false,
-
-    getImage: (tagValue) => {
-      if (!Buffer.isBuffer(tagValue)) {
+    getImage: (value) => {
+      if (!Buffer.isBuffer(value)) {
         throw new Error("Image tag value must be a Buffer");
       }
-      return tagValue;
+      return value;
     },
-
-    getSize: () => [80, 80],
+    getSize: () => [90, 90],
   });
 
   const doc = new Docxtemplater(zip, {
@@ -36,42 +35,37 @@ module.exports = function generateDocx(
     linebreaks: true,
   });
 
-  /* ---------------- SAFE DATA ---------------- */
+  // 🔒 ABSOLUTELY SAFE DATA
   const safeData = {
-    first_name: data.first_name || "",
-    middle_name: data.middle_name || "",
-    last_name: data.last_name || "",
+    first_name: data.first_name ?? "",
+    middle_name: data.middle_name ?? "",
+    last_name: data.last_name ?? "",
 
-    class_name: data.class_name || "",
-    training_date: data.training_date || "",
-    issue_date: data.issue_date || "",
+    class_name: data.class_name ?? "",
+    training_date: data.training_date ?? "",
+    issue_date: data.issue_date ?? "",
 
-    certificate_number: data.certificate_number || "",
-    instructor_name: data.instructor_name || "",
+    certificate_number: data.certificate_number ?? "",
+    instructor_name: data.instructor_name ?? "",
 
-    // 🔒 IMAGES MUST BE BUFFERS
+    // 🚨 NEVER allow undefined / null
     qr_code: Buffer.isBuffer(data.qr_code)
       ? data.qr_code
-      : Buffer.alloc(0),
+      : EMPTY_IMAGE,
 
     instructor_signature: Buffer.isBuffer(data.instructor_signature)
       ? data.instructor_signature
-      : Buffer.alloc(0),
+      : EMPTY_IMAGE,
   };
 
-  /* ---------------- RENDER ---------------- */
   try {
-    doc.render(safeData); // ✅ NEW API
-  } catch (error) {
-    console.error("DOCX render error:", error);
-    throw error;
+    doc.render(safeData);
+  } catch (err) {
+    console.error("DOCX render error:", err);
+    throw err;
   }
 
-  /* ---------------- WRITE FILE ---------------- */
-  const buffer = doc.getZip().generate({
-    type: "nodebuffer",
-    compression: "DEFLATE",
-  });
+  const buffer = doc.getZip().generate({ type: "nodebuffer" });
 
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, buffer);

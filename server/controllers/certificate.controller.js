@@ -112,6 +112,9 @@ exports.issueSingleCertificate = async (req, res) => {
       `${tempId}.docx`
     );
 
+    const uploadsDir = path.join(__dirname, "..", "uploads", "certificates");
+fs.mkdirSync(uploadsDir, { recursive: true });
+
     generateDocx(templateBuffer, docxData, outputDocxPath);
 
     /* ---------------- PDF ---------------- */
