@@ -121,7 +121,14 @@ console.log("QR IS BUFFER:", Buffer.isBuffer(qrBuffer));
 console.log("SIGN IS BUFFER:", Buffer.isBuffer(instructorSignatureBuffer));
 
 
-    generateDocx(templateBuffer, docxData, outputDocxPath);
+   try {
+  await generateDocx(templateBuffer, docxData, outputDocxPath);
+} catch (e) {
+  console.error("DOCX ERROR:", e);
+  console.error("ERROR PROPERTIES:", e.properties);
+  throw e;
+}
+
 
     /* ---------------- PDF ---------------- */
     const pdfLocalPath = await convertToPdf(outputDocxPath);
