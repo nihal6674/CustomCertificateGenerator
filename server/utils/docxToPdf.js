@@ -5,10 +5,13 @@ module.exports = (docxPath) => {
   return new Promise((resolve, reject) => {
     const outputDir = path.dirname(docxPath);
 
-    const libreOfficePath =
-      `"C:\\Program Files\\LibreOffice\\program\\soffice.exe"`;
+    // ✅ OS-aware LibreOffice command
+    const libreOfficeCmd =
+      process.platform === "win32"
+        ? `"C:\\Program Files\\LibreOffice\\program\\soffice.exe"`
+        : "libreoffice";
 
-    const command = `${libreOfficePath} \
+    const command = `${libreOfficeCmd} \
 --headless \
 --nologo \
 --nofirststartwizard \
@@ -19,10 +22,14 @@ module.exports = (docxPath) => {
 "${docxPath}" \
 --outdir "${outputDir}"`;
 
-    exec(command, { timeout: 60000 }, (error) => {
-      if (error) return reject(error);
+    exec(command, { timeout: 60000 }, (error, stdout, stderr) => {
+      if (error) {
+        console.error("LibreOffice stdout:", stdout);
+        console.error("LibreOffice stderr:", stderr);
+        return reject(error);
+      }
 
-      resolve(docxPath.replace(".docx", ".pdf"));
+      resolve(docxPath.replace(/\.docx$/i, ".pdf"));
     });
   });
 };
