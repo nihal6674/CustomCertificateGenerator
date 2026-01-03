@@ -363,37 +363,58 @@ const handleToggleStatus = async (template) => {
 
 /* ================= SHARED MODAL ================= */
 function Modal({ title, onClose, onSubmit, form, setForm }) {
+  const placeholders = {
+    templateName: "Enter template name (e.g. Web Dev Certificate)",
+    className: "Enter class name (e.g. React Bootcamp)",
+    instructorName: "Enter instructor name (e.g. John Doe)",
+  };
+
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
       <div className="bg-slate-800 p-6 rounded-xl w-full max-w-lg">
         <h2 className="text-xl font-bold mb-4">{title}</h2>
 
+        {/* TEXT INPUTS */}
         {["templateName", "className", "instructorName"].map((f) => (
           <input
             key={f}
-            className="w-full mb-3 p-2 rounded bg-slate-700"
+            placeholder={placeholders[f]}
+            className="w-full mb-3 p-2 rounded bg-slate-700 placeholder-slate-400"
             value={form[f]}
             onChange={(e) => setForm({ ...form, [f]: e.target.value })}
           />
         ))}
 
+        {/* TEMPLATE FILE (ALL TYPES ALLOWED) */}
+        <label className="block text-sm text-slate-400 mb-1">
+          Upload Certificate Template (any file type)
+        </label>
         <input
           type="file"
-          className="w-full mb-3"
+          className="w-full mb-3 text-slate-400"
           onChange={(e) =>
             setForm({ ...form, templateFile: e.target.files[0] })
           }
         />
+
+        {/* SIGNATURE FILE (ALL TYPES ALLOWED) */}
+        <label className="block text-sm text-slate-400 mb-1">
+          Upload Instructor Signature (any file type)
+        </label>
         <input
           type="file"
-          className="w-full mb-4"
+          className="w-full mb-4 text-slate-400"
           onChange={(e) =>
             setForm({ ...form, signatureFile: e.target.files[0] })
           }
         />
 
+        {/* ACTIONS */}
         <div className="flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 bg-slate-600 rounded">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-slate-600 rounded"
+          >
             Cancel
           </button>
           <button
@@ -407,3 +428,4 @@ function Modal({ title, onClose, onSubmit, form, setForm }) {
     </div>
   );
 }
+
