@@ -6,16 +6,18 @@ import {
   Outlet,
 } from "react-router-dom";
 import Login from "./pages/Login";
+import VerifyCertificate from "./pages/public/VerifyCertificate";
 import AdminDashboard from "./pages/AdminDashboard";
 import StaffDashboard from "./pages/Staff/StaffDashboard";
 import AdminUsers from "./pages/AdminUsers";
 import AdminTemplates from "./pages/AdminTemplates";
 import AdminIssuedCertificates from "./pages/AdminIssuedCertificates";
+
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
 import Navbar from "./components/Navbar";
 import { Toaster } from "react-hot-toast";
- 
+import CertificateDownloadPage from "./pages/public/CertificateDownloadPage";
 import StaffCertificatesPage from "./pages/Staff/StaffCertificatesPage";
 import StaffIssuePage from "./pages/Staff/StaffIssuePage";
 
@@ -48,6 +50,12 @@ export default function App() {
         <Routes>
           {/* PUBLIC */}
           <Route path="/login" element={<Login />} />
+          {/* ✅ PUBLIC CERTIFICATE VERIFICATION */}
+  <Route
+    path="/verify/:certificateNumber"
+    element={<VerifyCertificate />}
+  />
+  <Route path="/certificate/download" element={<CertificateDownloadPage />} />
 
           {/* ADMIN */}
           <Route

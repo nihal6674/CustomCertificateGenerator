@@ -3,14 +3,17 @@ const PizZip = require("pizzip");
 const Docxtemplater = require("docxtemplater");
 const ImageModule = require("docxtemplater-image-module-free");
 
-module.exports = (templatePath, data, outputPath) => {
-  const content = fs.readFileSync(templatePath, "binary");
+module.exports = (templateSource, data, outputPath) => {
+  const content = Buffer.isBuffer(templateSource)
+    ? templateSource
+    : fs.readFileSync(templateSource, "binary");
+
   const zip = new PizZip(content);
 
   const imageModule = new ImageModule({
     centered: false,
-    getImage: (tagValue) => tagValue, // Buffer required
-    getSize: () => [80, 80],          // QR / Signature size
+    getImage: (tagValue) => tagValue, // expects Buffer
+    getSize: () => [80, 80],
   });
 
   const doc = new Docxtemplater(zip, {
@@ -19,13 +22,12 @@ module.exports = (templatePath, data, outputPath) => {
     linebreaks: true,
   });
 
-  /* ---------------- SAFE DATA INJECTION ---------------- */
   doc.setData({
     first_name: data.first_name || "",
-    middle_name: data.middle_name || "",   // ✅ NEW (optional)
+    middle_name: data.middle_name || "",
     last_name: data.last_name || "",
 
-    class_name: data.class_name || "",     // ✅ ensure consistency
+    class_name: data.class_name || "",
     training_date: data.training_date || "",
     issue_date: data.issue_date || "",
 
@@ -40,7 +42,7 @@ module.exports = (templatePath, data, outputPath) => {
     doc.render();
   } catch (error) {
     console.error("DOCX render error:", error);
-    throw error; // IMPORTANT: bubble up for bulk error handling
+    throw error;
   }
 
   const buffer = doc.getZip().generate({ type: "nodebuffer" });

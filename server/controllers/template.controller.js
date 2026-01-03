@@ -1,5 +1,5 @@
 const Template = require('../models/Template');
-const { saveFile } = require('../utils/storage');
+const uploadMulterToR2 = require("../utils/uploadMulterToR2");
 
 // Create template
 exports.createTemplate = async (req, res) => {
@@ -15,8 +15,16 @@ exports.createTemplate = async (req, res) => {
       return res.status(400).json({ message: 'Files missing' });
     }
 
-    const templatePath = await saveFile(req.files.template[0], 'templates');
-    const signaturePath = await saveFile(req.files.signature[0], 'signatures');
+    const templatePath = await uploadMulterToR2({
+  file: req.files.template[0],
+  key: `templates/${className}/template.docx`,
+});
+
+const signaturePath = await uploadMulterToR2({
+  file: req.files.signature[0],
+  key: `templates/${className}/signature.png`,
+});
+
 
     const template = await Template.create({
       templateName,
@@ -47,49 +55,39 @@ exports.updateTemplate = async (req, res) => {
       return res.status(404).json({ message: "Template not found" });
     }
 
-    // 📄 Update DOCX template file
     if (req.files?.template?.[0]) {
-      template.templateFilePath = await saveFile(
-        req.files.template[0],
-        "templates"
-      );
+      template.templateFilePath = await uploadMulterToR2({
+        file: req.files.template[0],
+        key: `templates/${template.className}/template.docx`,
+      });
     }
 
-    // ✍️ Update instructor signature
     if (req.files?.signature?.[0]) {
-      template.instructorSignaturePath = await saveFile(
-        req.files.signature[0],
-        "signatures"
-      );
+      template.instructorSignaturePath = await uploadMulterToR2({
+        file: req.files.signature[0],
+        key: `templates/${template.className}/signature.png`,
+      });
     }
 
-    // 📝 Update text fields
-    if (req.body.templateName !== undefined) {
+    if (req.body.templateName !== undefined)
       template.templateName = req.body.templateName;
-    }
 
-    if (req.body.className !== undefined) {
+    if (req.body.className !== undefined)
       template.className = req.body.className;
-    }
 
-    if (req.body.instructorName !== undefined) {
+    if (req.body.instructorName !== undefined)
       template.instructorName = req.body.instructorName;
-    }
 
-    if (req.body.active !== undefined) {
+    if (req.body.active !== undefined)
       template.active = req.body.active === "true" || req.body.active === true;
-    }
 
     await template.save();
 
-    res.json({
-      message: "Template updated",
-      template,
-    });
+    // ✅ IMPORTANT: return the updated template directly
+    res.json(template);
   } catch (error) {
     console.error(error);
 
-    // Handle unique className error cleanly
     if (error.code === 11000) {
       return res.status(400).json({
         message: "Class name must be unique",

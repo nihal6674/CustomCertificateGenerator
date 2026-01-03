@@ -142,8 +142,6 @@ export default function AdminUsers() {
     }
   };
 
-  if (loading) return <div className="p-8 text-white">Loading users…</div>;
-
   return (
     <div className="min-h-screen bg-slate-900 text-white p-8">
       <h1 className="text-3xl font-bold mb-6">User Management</h1>
@@ -163,75 +161,80 @@ export default function AdminUsers() {
           </thead>
 
           <tbody>
-            {users.map((u) => (
-              <tr key={u._id} className="border-t border-slate-700">
-                <td className="px-4 py-3">{u.name}</td>
-                <td className="px-4 py-3">{u.email}</td>
-
-                <td className="px-4 py-3 text-center">
-  <span
-    className={`px-2.5 py-1 rounded-full text-xs font-semibold tracking-wide ${
-      u.role === "ADMIN"
-        ? "bg-blue-500/20 text-blue-400"
-        : "bg-emerald-500/20 text-emerald-400"
-    }`}
-  >
-    {u.role}
-  </span>
-</td>
-
-
-
-                <td className="px-4 py-3 text-center">
-                  {u.isSuperAdmin ? (
-                    <span className="inline-flex items-center gap-1 text-violet-400">
-                      <Lock size={14} /> Yes
-                    </span>
-                  ) : (
-                    "No"
-                  )}
-                </td>
-
-               <td className="px-4 py-3 text-center">
-  <span
-    className={`px-2.5 py-1 rounded-full text-xs font-semibold tracking-wide ${
-      u.active
-        ? "bg-emerald-500/20 text-emerald-400"
-        : "bg-red-500/20 text-red-400"
-    }`}
-  >
-    {u.active ? "Active" : "Inactive"}
-  </span>
-</td>
-
-
-                <td className="px-4 py-3 text-center space-x-2">
-                  {isSuperAdmin && !u.isSuperAdmin ? (
-                    <>
-                      <button
-                        onClick={() => openEdit(u)}
-                        className="px-3 py-1 rounded bg-slate-600 hover:bg-slate-500 text-sm"
-                      >
-                        Edit
-                      </button>
-
-                      <button
-                        onClick={() => handleToggleStatus(u)}
-                        className={`px-3 py-1 rounded text-sm ${
-                          u.active
-                            ? "bg-red-500 hover:bg-red-600"
-                            : "bg-emerald-500 hover:bg-emerald-600"
-                        }`}
-                      >
-                        {u.active ? "Revoke" : "Activate"}
-                      </button>
-                    </>
-                  ) : (
-                    <span className="text-slate-500 text-sm">Protected</span>
-                  )}
+            {loading ? (
+              <tr>
+                <td colSpan="6" className="py-10 text-center text-slate-400">
+                  Loading users…
                 </td>
               </tr>
-            ))}
+            ) : (
+              users.map((u) => (
+                <tr key={u._id} className="border-t border-slate-700">
+                  <td className="px-4 py-3">{u.name}</td>
+                  <td className="px-4 py-3">{u.email}</td>
+
+                  <td className="px-4 py-3 text-center">
+                    <span
+                      className={`px-2.5 py-1 rounded-full text-xs font-semibold tracking-wide ${
+                        u.role === "ADMIN"
+                          ? "bg-blue-500/20 text-blue-400"
+                          : "bg-emerald-500/20 text-emerald-400"
+                      }`}
+                    >
+                      {u.role}
+                    </span>
+                  </td>
+
+                  <td className="px-4 py-3 text-center">
+                    {u.isSuperAdmin ? (
+                      <span className="inline-flex items-center gap-1 text-violet-400">
+                        <Lock size={14} /> Yes
+                      </span>
+                    ) : (
+                      "No"
+                    )}
+                  </td>
+
+                  <td className="px-4 py-3 text-center">
+                    <span
+                      className={`px-2.5 py-1 rounded-full text-xs font-semibold tracking-wide ${
+                        u.active
+                          ? "bg-emerald-500/20 text-emerald-400"
+                          : "bg-red-500/20 text-red-400"
+                      }`}
+                    >
+                      {u.active ? "Active" : "Inactive"}
+                    </span>
+                  </td>
+
+                  <td className="px-4 py-3 text-center space-x-2">
+                    {isSuperAdmin && !u.isSuperAdmin ? (
+                      <>
+                        <button
+                          onClick={() => openEdit(u)}
+                          className="px-3 py-1 rounded bg-slate-600 hover:bg-slate-500 text-sm"
+                        >
+                          Edit
+                        </button>
+
+                        <button
+                          onClick={() => handleToggleStatus(u)}
+                          className={`px-3 py-1 rounded text-sm ${
+                            u.active
+                              ? "bg-red-500 hover:bg-red-600"
+                              : "bg-emerald-500 hover:bg-emerald-600"
+                          }`}
+                        >
+                          {u.active ? "Revoke" : "Activate"}
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-slate-500 text-sm">Protected</span>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -249,70 +252,60 @@ export default function AdminUsers() {
         </div>
       )}
 
-
       {/* ADD USER MODAL */}
-{showAdd && (
-  <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-    <div className="bg-slate-800 p-6 rounded-xl w-full max-w-md">
-      <h2 className="text-xl font-bold mb-4">Create New User</h2>
+      {showAdd && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-slate-800 p-6 rounded-xl w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Create New User</h2>
 
-      <input
-        className="w-full mb-3 p-2 rounded bg-slate-700"
-        placeholder="Name"
-        value={form.name}
-        onChange={(e) =>
-          setForm({ ...form, name: e.target.value })
-        }
-      />
+            <input
+              className="w-full mb-3 p-2 rounded bg-slate-700"
+              placeholder="Name"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
 
-      <input
-        className="w-full mb-3 p-2 rounded bg-slate-700"
-        placeholder="Email"
-        value={form.email}
-        onChange={(e) =>
-          setForm({ ...form, email: e.target.value })
-        }
-      />
+            <input
+              className="w-full mb-3 p-2 rounded bg-slate-700"
+              placeholder="Email"
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+            />
 
-      <input
-        type="password"
-        className="w-full mb-3 p-2 rounded bg-slate-700"
-        placeholder="Password"
-        value={form.password}
-        onChange={(e) =>
-          setForm({ ...form, password: e.target.value })
-        }
-      />
+            <input
+              type="password"
+              className="w-full mb-3 p-2 rounded bg-slate-700"
+              placeholder="Password"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+            />
 
-      <select
-        className="w-full mb-4 p-2 rounded bg-slate-700"
-        value={form.role}
-        onChange={(e) =>
-          setForm({ ...form, role: e.target.value })
-        }
-      >
-        <option value="STAFF">STAFF</option>
-        <option value="ADMIN">ADMIN</option>
-      </select>
+            <select
+              className="w-full mb-4 p-2 rounded bg-slate-700"
+              value={form.role}
+              onChange={(e) => setForm({ ...form, role: e.target.value })}
+            >
+              <option value="STAFF">STAFF</option>
+              <option value="ADMIN">ADMIN</option>
+            </select>
 
-      <div className="flex justify-end gap-3">
-        <button
-          onClick={() => setShowAdd(false)}
-          className="px-4 py-2 bg-slate-600 rounded"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={handleCreateUser}
-          className="px-4 py-2 bg-emerald-500 rounded"
-        >
-          Create
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowAdd(false)}
+                className="px-4 py-2 bg-slate-600 rounded"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateUser}
+                className="px-4 py-2 bg-emerald-500 rounded"
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* EDIT USER MODAL */}
       {showEdit && (

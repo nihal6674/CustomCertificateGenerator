@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { getCertificates } from "../../../api/certificate";
+import CertificateViewModal from "../../../components/CertificateViewModal";
+import { Eye } from "lucide-react";
+
 
 export default function CertificatesTable() {
   const [certificates, setCertificates] = useState([]);
@@ -10,6 +13,7 @@ export default function CertificatesTable() {
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [total, setTotal] = useState(0);
+  const [viewCert, setViewCert] = useState(null);
 
   /* ---------------- FETCH FROM BACKEND ---------------- */
   useEffect(() => {
@@ -84,6 +88,8 @@ export default function CertificatesTable() {
                 <th className="p-3 text-left">Training Date</th>
                 <th className="p-3 text-left">Issued On</th>
                 <th className="p-3 text-left">Status</th>
+                  <th className="p-3 text-left">Actions</th> {/* ✅ ADD */}
+
               </tr>
             </thead>
 
@@ -129,6 +135,27 @@ export default function CertificatesTable() {
                       {c.status}
                     </span>
                   </td>
+
+                  <td className="p-3">
+  <button
+    onClick={() => setViewCert(c)}
+    className="
+      inline-flex items-center gap-1.5
+      px-3 py-1.5
+      rounded-lg
+      text-xs font-medium
+      text-sky-400
+      bg-sky-500/10
+      hover:bg-sky-500/20
+      hover:text-sky-300
+      transition
+    "
+  >
+    <Eye size={14} />
+    View
+  </button>
+</td>
+
                 </tr>
               ))}
             </tbody>
@@ -162,6 +189,13 @@ export default function CertificatesTable() {
           </button>
         </div>
       )}
+
+      <CertificateViewModal
+  open={!!viewCert}
+  certificate={viewCert}
+  onClose={() => setViewCert(null)}
+/>
+
     </div>
   );
 }

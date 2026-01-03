@@ -72,4 +72,10 @@ router.get(
   controller.getCertificates
 );
 
+
+router.get(
+  "/download/:certificateNumber",
+  controller.downloadCertificate
+);
+
 module.exports = router;

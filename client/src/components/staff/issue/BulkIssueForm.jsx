@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "./config";
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import {
@@ -5,7 +6,8 @@ import {
   getBulkJobStatus,
 } from "../../../api/certificate";
 
-const API_BASE = "http://localhost:3000/api/certificates";
+
+const API_BASE = `${API_BASE_URL}/api/certificates`;
 
 export default function BulkIssueForm() {
   const [file, setFile] = useState(null);

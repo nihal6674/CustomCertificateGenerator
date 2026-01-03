@@ -24,6 +24,7 @@ app.use("/api/auth", require("./routes/auth.routes"));
 app.use("/api/users", require("./routes/user.routes"));
 app.use("/api/templates", require("./routes/template.routes"));
 app.use("/api/certificates", require("./routes/certificate.routes"));
+app.use("/api/files", require("./routes/file.routes"));
 
 app.get("/", (req, res) => {
   res.send("Server running");
