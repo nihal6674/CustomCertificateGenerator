@@ -57,6 +57,7 @@ exports.issueSingleCertificate = async (req, res) => {
       });
     }
 
+    
     /* ---------------- CERTIFICATE NUMBER ---------------- */
     const baseCertNumber = await generateCertificateNumber();
 
@@ -198,6 +199,9 @@ exports.issueBulkCertificates = async (req, res) => {
           } = row;
 
           const trainingDate = normalizeDate(row.trainingDate);
+          if (!trainingDate) {
+  throw new Error("Invalid or missing trainingDate");
+}
 
           // ---------------- VALIDATION ----------------
           if (!firstName || !lastName || !className || !trainingDate) {
@@ -393,6 +397,7 @@ exports.reissueFailedCertificates = async (req, res) => {
         } = row;
 
         const normalizedDate = normalizeDate(trainingDate);
+
 
         /* ---------------- VALIDATION ---------------- */
         if (!firstName || !lastName || !className || !normalizedDate) {
