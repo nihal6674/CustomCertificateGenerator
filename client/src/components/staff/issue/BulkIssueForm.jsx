@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "./config";
+import { API_BASE_URL } from "../../../api/config";
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import {

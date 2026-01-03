@@ -2,7 +2,7 @@ import { useState } from "react";
 import toast from "react-hot-toast";
 import { Download, CheckCircle, XCircle } from "lucide-react";
 
-import { API_BASE_URL } from "./config";
+import { API_BASE_URL } from "../../api/config";
 
 const API_BASE = `${API_BASE_URL}/api/certificates`;
 

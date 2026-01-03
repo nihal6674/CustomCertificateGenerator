@@ -84,6 +84,7 @@ export default function CertificatesTable() {
               <tr>
                 <th className="p-3 text-left">Student</th>
                 <th className="p-3 text-left">Certificate #</th>
+                <th className="p-3 text-left">Instructor</th>
                 <th className="p-3 text-left">Class</th>
                 <th className="p-3 text-left">Training Date</th>
                 <th className="p-3 text-left">Issued On</th>
@@ -110,6 +111,9 @@ export default function CertificatesTable() {
                     {c.certificateNumber}
                   </td>
 
+                  {/* INSTRUCTOR */}
+                  <td className="p-3">{c.instructorName}</td>
+                  
                   {/* CLASS */}
                   <td className="p-3">{c.className}</td>
 
