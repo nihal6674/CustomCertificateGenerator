@@ -1,8 +1,10 @@
-const API_URL = "http://localhost:3000/api/templates";
 
+import { API_BASE_URL } from "./config";
+
+const API_URL = `${API_BASE_URL}/api/templates`;
 
 export async function getTemplates() {
-  const res = await fetch("http://localhost:3000/api/templates", {
+  const res = await fetch(API_URL, {
     credentials: "include",
   });
 
@@ -14,7 +16,7 @@ export async function getTemplates() {
 }
 
 export async function createTemplate(formData) {
-  const res = await fetch("http://localhost:3000/api/templates", {
+  const res = await fetch(API_URL, {
     method: "POST",
     credentials: "include",
     body: formData, // multipart/form-data
@@ -30,7 +32,7 @@ export async function createTemplate(formData) {
 
 export async function toggleTemplateStatus(templateId) {
   const res = await fetch(
-    `http://localhost:3000/api/templates/${templateId}/deactivate`,
+    `${API_URL}/${templateId}/deactivate`,
     {
       method: "PATCH",
       credentials: "include",
@@ -49,7 +51,7 @@ export async function toggleTemplateStatus(templateId) {
 
 export async function updateTemplate(templateId, formData) {
   const res = await fetch(
-    `http://localhost:3000/api/templates/${templateId}`,
+    `${API_URL}/${templateId}`,
     {
       method: "PATCH",
       credentials: "include",

@@ -1,5 +1,8 @@
+import { API_BASE_URL } from "./config";
+const API_URL = `${API_BASE_URL}/api/users`;
+
 export async function getUsers() {
-  const res = await fetch("http://localhost:3000/api/users", {
+  const res = await fetch(API_URL, {
     credentials: "include", // send JWT cookie
   });
 
@@ -12,7 +15,7 @@ export async function getUsers() {
 
 export async function toggleUserStatus(userId) {
   const res = await fetch(
-    `http://localhost:3000/api/users/${userId}/status`,
+    `${API_URL}/${userId}/status`,
     {
       method: "PATCH",
       credentials: "include",
@@ -30,7 +33,7 @@ export async function toggleUserStatus(userId) {
 }
 
 export async function updateUser(userId, payload) {
-  const res = await fetch(`http://localhost:3000/api/users/${userId}/role`, {
+  const res = await fetch(`${API_URL}/${userId}/role`, {
     method: "PATCH",
     credentials: "include",
     headers: {
@@ -47,11 +50,8 @@ export async function updateUser(userId, payload) {
   return res.json();
 }
 
-
-
-
 export async function createUser(payload) {
-  const res = await fetch("http://localhost:3000/api/users", {
+  const res = await fetch(API_URL, {
     method: "POST",
     credentials: "include",
     headers: {

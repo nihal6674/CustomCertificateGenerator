@@ -1,4 +1,6 @@
-const API_URL = "http://localhost:3000/api/certificates";
+import { API_BASE_URL } from "./config";
+
+const API_URL = `${API_BASE_URL}/api/certificates`;
 
 // /* ---------------- LIST / SEARCH CERTIFICATES ---------------- */
 // export async function getCertificatesByAdvancedSearch(params = {}) {
@@ -104,7 +106,7 @@ export async function getCertificates({ page = 1, limit = 10, search = "" }) {
   });
 
   const res = await fetch(
-    `http://localhost:3000/api/certificates?${params}`,
+    `${API_URL}?${params}`,
     { credentials: "include" }
   );
 
