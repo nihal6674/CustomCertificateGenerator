@@ -1,18 +1,32 @@
 const fs = require("fs");
+const path = require("path");
 const PizZip = require("pizzip");
 const Docxtemplater = require("docxtemplater");
 const ImageModule = require("docxtemplater-image-module-free");
 
-module.exports = (templateSource, data, outputPath) => {
-  const content = Buffer.isBuffer(templateSource)
+module.exports = function generateDocx(
+  templateSource,   // Buffer OR file path
+  data,
+  outputPath
+) {
+  /* ---------------- TEMPLATE LOAD ---------------- */
+  const templateBuffer = Buffer.isBuffer(templateSource)
     ? templateSource
-    : fs.readFileSync(templateSource, "binary");
+    : fs.readFileSync(templateSource); // ✅ BUFFER ONLY
 
-  const zip = new PizZip(content);
+  const zip = new PizZip(templateBuffer);
 
+  /* ---------------- IMAGE MODULE ---------------- */
   const imageModule = new ImageModule({
     centered: false,
-    getImage: (tagValue) => tagValue, // expects Buffer
+
+    getImage: (tagValue) => {
+      if (!Buffer.isBuffer(tagValue)) {
+        throw new Error("Image tag value must be a Buffer");
+      }
+      return tagValue;
+    },
+
     getSize: () => [80, 80],
   });
 
@@ -22,7 +36,8 @@ module.exports = (templateSource, data, outputPath) => {
     linebreaks: true,
   });
 
-  doc.setData({
+  /* ---------------- SAFE DATA ---------------- */
+  const safeData = {
     first_name: data.first_name || "",
     middle_name: data.middle_name || "",
     last_name: data.last_name || "",
@@ -34,17 +49,30 @@ module.exports = (templateSource, data, outputPath) => {
     certificate_number: data.certificate_number || "",
     instructor_name: data.instructor_name || "",
 
-    qr_code: data.qr_code || null,
-    instructor_signature: data.instructor_signature || null,
-  });
+    // 🔒 IMAGES MUST BE BUFFERS
+    qr_code: Buffer.isBuffer(data.qr_code)
+      ? data.qr_code
+      : Buffer.alloc(0),
 
+    instructor_signature: Buffer.isBuffer(data.instructor_signature)
+      ? data.instructor_signature
+      : Buffer.alloc(0),
+  };
+
+  /* ---------------- RENDER ---------------- */
   try {
-    doc.render();
+    doc.render(safeData); // ✅ NEW API
   } catch (error) {
     console.error("DOCX render error:", error);
     throw error;
   }
 
-  const buffer = doc.getZip().generate({ type: "nodebuffer" });
+  /* ---------------- WRITE FILE ---------------- */
+  const buffer = doc.getZip().generate({
+    type: "nodebuffer",
+    compression: "DEFLATE",
+  });
+
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, buffer);
 };

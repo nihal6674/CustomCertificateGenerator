@@ -21,21 +21,16 @@ exports.issueSingleCertificate = async (req, res) => {
   try {
     const {
       firstName,
-      middleName, // optional
+      middleName,
       lastName,
       className,
       trainingDate,
     } = req.body;
 
-    const normalizedTrainingDate = normalizeDate(trainingDate);
-
     /* ---------------- VALIDATION ---------------- */
-    if (!firstName || !lastName || !className || !normalizedTrainingDate) {
-  return res.status(400).json({
-    message: "Missing or invalid training date",
-  });
-}
-
+    if (!firstName || !lastName || !className || !trainingDate) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
 
     /* ---------------- DUPLICATE CHECK ---------------- */
     const existing = await Certificate.findOne({
@@ -50,7 +45,7 @@ exports.issueSingleCertificate = async (req, res) => {
       });
     }
 
-    /* ---------------- FETCH TEMPLATE ---------------- */
+    /* ---------------- TEMPLATE ---------------- */
     const template = await Template.findOne({
       className,
       active: true,
@@ -62,8 +57,7 @@ exports.issueSingleCertificate = async (req, res) => {
       });
     }
 
-    
-    /* ---------------- CERTIFICATE NUMBER ---------------- */
+    /* ---------------- CERT NUMBER ---------------- */
     const baseCertNumber = await generateCertificateNumber();
 
     const certificateNumber = formatCertificateNumber({
@@ -73,14 +67,10 @@ exports.issueSingleCertificate = async (req, res) => {
       lastName,
     });
 
-    /* ---------------- QR CODE ---------------- */
+    /* ---------------- QR ---------------- */
     const qrBuffer = await generateQR(baseCertNumber);
 
-    /* ---------------- DOWNLOAD TEMPLATE & SIGNATURE FROM R2 ---------------- */
-    if (!template.templateFilePath || !template.instructorSignaturePath) {
-      throw new Error("Template or signature path missing");
-    }
-
+    /* ---------------- DOWNLOAD FROM R2 ---------------- */
     const templateBuffer = await downloadFromR2(
       template.templateFilePath
     );
@@ -89,13 +79,22 @@ exports.issueSingleCertificate = async (req, res) => {
       template.instructorSignaturePath
     );
 
+    // 🔐 HARD SAFETY CHECK (FIXES PROD CRASH)
+    if (!Buffer.isBuffer(qrBuffer)) {
+      throw new Error("QR code buffer invalid");
+    }
+
+    if (!Buffer.isBuffer(instructorSignatureBuffer)) {
+      throw new Error("Instructor signature buffer invalid");
+    }
+
     /* ---------------- DOCX DATA ---------------- */
     const docxData = {
       first_name: firstName,
       middle_name: middleName || "",
       last_name: lastName,
       class_name: className,
-      training_date: normalizedTrainingDate,
+      training_date: trainingDate,
       issue_date: new Date().toISOString().split("T")[0],
       certificate_number: baseCertNumber,
       instructor_name: template.instructorName,
@@ -103,9 +102,8 @@ exports.issueSingleCertificate = async (req, res) => {
       instructor_signature: instructorSignatureBuffer,
     };
 
-    /* ---------------- TEMP DOCX FILE ---------------- */
+    /* ---------------- TEMP DOCX ---------------- */
     const tempId = `${certificateNumber}-${Date.now()}`;
-
     const outputDocxPath = path.join(
       __dirname,
       "..",
@@ -114,16 +112,12 @@ exports.issueSingleCertificate = async (req, res) => {
       `${tempId}.docx`
     );
 
-    generateDocx(
-      templateBuffer, // BUFFER (R2)
-      docxData,
-      outputDocxPath
-    );
+    generateDocx(templateBuffer, docxData, outputDocxPath);
 
-    /* ---------------- PDF CONVERSION ---------------- */
+    /* ---------------- PDF ---------------- */
     const pdfLocalPath = await convertToPdf(outputDocxPath);
 
-    /* ---------------- UPLOAD PDF TO R2 ---------------- */
+    /* ---------------- UPLOAD PDF ---------------- */
     const r2Key = `certificates/${certificateNumber}.pdf`;
 
     await uploadToR2({
@@ -131,18 +125,18 @@ exports.issueSingleCertificate = async (req, res) => {
       key: r2Key,
     });
 
-    /* ---------------- CLEANUP LOCAL FILES ---------------- */
+    /* ---------------- CLEANUP ---------------- */
     if (fs.existsSync(outputDocxPath)) fs.unlinkSync(outputDocxPath);
     if (fs.existsSync(pdfLocalPath)) fs.unlinkSync(pdfLocalPath);
 
-    /* ---------------- SAVE CERTIFICATE ---------------- */
+    /* ---------------- SAVE ---------------- */
     const certificate = await Certificate.create({
       certificateNumber: baseCertNumber,
       firstName,
       middleName: middleName || null,
       lastName,
       className,
-      normalizedTrainingDate,
+      trainingDate,
       issueDate: new Date(),
       instructorName: template.instructorName,
       templateId: template._id,
@@ -155,7 +149,7 @@ exports.issueSingleCertificate = async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: err.message || "Server error" });
   }
 };
 
