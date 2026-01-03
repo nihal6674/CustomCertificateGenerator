@@ -25,12 +25,12 @@ exports.login = async (req, res) => {
     { expiresIn: '1d' }
   );
 
-  res.cookie('token', token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-    maxAge: 24 * 60 * 60 * 1000
-  });
+ res.cookie('token', token, {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production', // must be true on HTTPS
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+  maxAge: 24 * 60 * 60 * 1000,
+});
 
   res.json({
     message: 'Login successful',
@@ -44,10 +44,10 @@ exports.login = async (req, res) => {
 
 exports.logout = (req, res) => {
   res.clearCookie('token', {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict'
-  });
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+});
 
   res.json({ message: 'Logged out successfully' });
 };
