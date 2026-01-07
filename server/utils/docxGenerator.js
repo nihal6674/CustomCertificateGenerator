@@ -47,7 +47,7 @@ module.exports = function generateDocx(
       }
       return value;
     },
-    getSize: () => [90, 90],
+    getSize: () => null,
   });
 
   const doc = new Docxtemplater(zip, {
