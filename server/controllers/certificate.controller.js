@@ -17,6 +17,19 @@ const { getSignedViewUrl } = require("../utils/r2SignedUrl");
 // const addWatermark = require("../utils/addWatermark");
 const normalizeDate = require("../utils/normalizeDate");
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 exports.issueSingleCertificate = async (req, res) => {
   try {
     const {
@@ -68,8 +81,14 @@ exports.issueSingleCertificate = async (req, res) => {
     });
 
     /* ---------------- QR ---------------- */
-    const qrBuffer = await generateQR(baseCertNumber);
+    // const qrBuffer = await generateQR(baseCertNumber);
 
+    const testImagePath = path.join(__dirname, "..", "assets", "test-image.png");
+    const qrBuffer = fs.readFileSync(testImagePath);
+    console.log("USING STATIC IMAGE INSTEAD OF QR", {
+      isBuffer: Buffer.isBuffer(qrBuffer),
+      length: qrBuffer.length,
+    });
     /* ---------------- DOWNLOAD FROM R2 ---------------- */
     const templateBuffer = await downloadFromR2(
       template.templateFilePath
@@ -293,7 +312,7 @@ const instructorSignatureBuffer = await downloadFromR2(
             `${tempId}.docx`
           );
 
-          generateDocx(
+         await generateDocx(
   templateBuffer,
   docxData,
   outputDocxPath
@@ -491,7 +510,7 @@ exports.reissueFailedCertificates = async (req, res) => {
           `${tempId}.docx`
         );
 
-        generateDocx(
+       await generateDocx(
           templateBuffer, // ✅ BUFFER FROM R2
           docxData,
           outputDocxPath
