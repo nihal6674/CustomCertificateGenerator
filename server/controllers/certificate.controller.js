@@ -176,25 +176,34 @@ console.log("STEP 5: About to generate DOCX", {
 }
 
 console.log("STEP 6: DOCX generated successfully");
+/* ---------------- UPLOAD DOCX ---------------- */
+const r2Key = `certificates/${certificateNumber}.docx`;
+
+await uploadToR2({
+  filePath: outputDocxPath,
+  key: r2Key,
+});
+
+console.log("STEP 7: DOCX uploaded to R2", r2Key);
 
     /* ---------------- PDF ---------------- */
-    const pdfLocalPath = await convertToPdf(outputDocxPath);
-    console.log("STEP 7: PDF generated", pdfLocalPath);
+    // const pdfLocalPath = await convertToPdf(outputDocxPath);
+    // console.log("STEP 7: PDF generated", pdfLocalPath);
 
     /* ---------------- UPLOAD PDF ---------------- */
-    const r2Key = `certificates/${certificateNumber}.pdf`;
+    // const r2Key = `certificates/${certificateNumber}.pdf`;
 
-    await uploadToR2({
-      filePath: pdfLocalPath,
-      key: r2Key,
-    });
+    // await uploadToR2({
+    //   filePath: pdfLocalPath,
+    //   key: r2Key,
+    // });
 
-    console.log("STEP 8: PDF uploaded to R2", r2Key);
+    // console.log("STEP 8: PDF uploaded to R2", r2Key);
 
 
     /* ---------------- CLEANUP ---------------- */
     if (fs.existsSync(outputDocxPath)) fs.unlinkSync(outputDocxPath);
-    if (fs.existsSync(pdfLocalPath)) fs.unlinkSync(pdfLocalPath);
+    // if (fs.existsSync(pdfLocalPath)) fs.unlinkSync(pdfLocalPath);
 
     /* ---------------- SAVE ---------------- */
     const certificate = await Certificate.create({

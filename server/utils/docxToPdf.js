@@ -5,8 +5,10 @@ module.exports = (docxPath) => {
   return new Promise((resolve, reject) => {
     const outputDir = path.dirname(docxPath);
 
-    // Linux / Render command
-    const command = `soffice \
+    const libreOfficePath =
+      `"C:\\Program Files\\LibreOffice\\program\\soffice.exe"`;
+
+    const command = `${libreOfficePath} \
 --headless \
 --nologo \
 --nofirststartwizard \
@@ -17,11 +19,8 @@ module.exports = (docxPath) => {
 "${docxPath}" \
 --outdir "${outputDir}"`;
 
-    exec(command, { timeout: 120000 }, (error) => {
-      if (error) {
-        console.error("PDF CONVERSION FAILED:", error);
-        return reject(error);
-      }
+    exec(command, { timeout: 60000 }, (error) => {
+      if (error) return reject(error);
 
       resolve(docxPath.replace(".docx", ".pdf"));
     });

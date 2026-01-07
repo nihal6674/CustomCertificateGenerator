@@ -7,6 +7,27 @@ const ImageModule = require("docxtemplater-image-module-free");
 const EMPTY_IMAGE = fs.readFileSync(
   path.join(__dirname, "../assets/empty.png")
 );
+function addReadOnlyProtection(zip) {
+  const settingsPath = "word/settings.xml";
+
+  const settingsFile = zip.file(settingsPath);
+  if (!settingsFile) return;
+
+  let settingsXml = settingsFile.asText();
+
+  if (!settingsXml.includes("<w:documentProtection")) {
+    settingsXml = settingsXml.replace(
+      "</w:settings>",
+      `
+      <w:documentProtection
+        w:edit="readOnly"
+        w:enforcement="1"/>
+      </w:settings>`
+    );
+
+    zip.file(settingsPath, settingsXml);
+  }
+}
 
 module.exports = function generateDocx(
   templateSource,
@@ -65,8 +86,14 @@ module.exports = function generateDocx(
     throw err;
   }
 
-  const buffer = doc.getZip().generate({ type: "nodebuffer" });
+  const zipOut = doc.getZip();
 
-  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-  fs.writeFileSync(outputPath, buffer);
+// 🔒 MAKE DOCX READ-ONLY
+addReadOnlyProtection(zipOut);
+
+const buffer = zipOut.generate({ type: "nodebuffer" });
+
+fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+fs.writeFileSync(outputPath, buffer);
+
 };
