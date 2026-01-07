@@ -31,6 +31,8 @@ const normalizeDate = require("../utils/normalizeDate");
 
 
 exports.issueSingleCertificate = async (req, res) => {
+  console.log("STEP 1: Request received");
+
   try {
     const {
       firstName,
@@ -69,6 +71,10 @@ exports.issueSingleCertificate = async (req, res) => {
         message: "No active template found for this class",
       });
     }
+    console.log("STEP 2: Template fetched", {
+  hasTemplate: !!template,
+  templateFilePath: template?.templateFilePath,
+});
 
     /* ---------------- CERT NUMBER ---------------- */
     const baseCertNumber = await generateCertificateNumber();
@@ -89,6 +95,13 @@ exports.issueSingleCertificate = async (req, res) => {
       isBuffer: Buffer.isBuffer(qrBuffer),
       length: qrBuffer.length,
     });
+
+
+    console.log("STEP 3: Static image loaded", {
+  isBuffer: Buffer.isBuffer(qrBuffer),
+  length: qrBuffer.length,
+});
+
     /* ---------------- DOWNLOAD FROM R2 ---------------- */
     const templateBuffer = await downloadFromR2(
       template.templateFilePath
@@ -97,6 +110,13 @@ exports.issueSingleCertificate = async (req, res) => {
     const instructorSignatureBuffer = await downloadFromR2(
       template.instructorSignaturePath
     );
+
+    console.log("STEP 4: R2 downloads done", {
+  templateIsBuffer: Buffer.isBuffer(templateBuffer),
+  templateSize: templateBuffer?.length,
+  signIsBuffer: Buffer.isBuffer(instructorSignatureBuffer),
+  signSize: instructorSignatureBuffer?.length,
+});
 
     // 🔐 HARD SAFETY CHECK (FIXES PROD CRASH)
     if (!Buffer.isBuffer(qrBuffer)) {
@@ -139,18 +159,27 @@ console.log("SIGN TYPE:", instructorSignatureBuffer?.constructor?.name);
 console.log("QR IS BUFFER:", Buffer.isBuffer(qrBuffer));
 console.log("SIGN IS BUFFER:", Buffer.isBuffer(instructorSignatureBuffer));
 
+console.log("STEP 5: About to generate DOCX", {
+  keys: Object.keys(docxData),
+  qrType: qrBuffer.constructor.name,
+  signType: instructorSignatureBuffer.constructor.name,
+});
 
    try {
+    
   await generateDocx(templateBuffer, docxData, outputDocxPath);
+  
 } catch (e) {
   console.error("DOCX ERROR:", e);
   console.error("ERROR PROPERTIES:", e.properties);
   throw e;
 }
 
+console.log("STEP 6: DOCX generated successfully");
 
     /* ---------------- PDF ---------------- */
     const pdfLocalPath = await convertToPdf(outputDocxPath);
+    console.log("STEP 7: PDF generated", pdfLocalPath);
 
     /* ---------------- UPLOAD PDF ---------------- */
     const r2Key = `certificates/${certificateNumber}.pdf`;
@@ -159,6 +188,9 @@ console.log("SIGN IS BUFFER:", Buffer.isBuffer(instructorSignatureBuffer));
       filePath: pdfLocalPath,
       key: r2Key,
     });
+
+    console.log("STEP 8: PDF uploaded to R2", r2Key);
+
 
     /* ---------------- CLEANUP ---------------- */
     if (fs.existsSync(outputDocxPath)) fs.unlinkSync(outputDocxPath);
