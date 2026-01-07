@@ -5,7 +5,7 @@ const Docxtemplater = require("docxtemplater");
 const ImageModule = require("docxtemplater-image-module-free");
 
 const EMPTY_IMAGE = fs.readFileSync(
-  path.join(__dirname, "../assets/empty.png")
+  path.join(__dirname, "../assets/test-image.png")
 );
 
 module.exports = function generateDocx(
@@ -19,22 +19,26 @@ module.exports = function generateDocx(
 
   const zip = new PizZip(templateBuffer);
 
-  const imageModule = new ImageModule({
-    getImage: (value) => {
-      if (!Buffer.isBuffer(value)) {
-        throw new Error("Image tag value must be a Buffer");
-      }
-      return value;
-    },
+ const imageModule = new ImageModule({
+  getImage: (value) => {
+    if (!Buffer.isBuffer(value)) {
+      throw new Error("Image tag value must be a Buffer");
+    }
+    return value;
+  },
 
-    // ✅ READ size from template tag: |size=WxH
-    getSize: (img, tagValue) => {
-      if (tagValue && Array.isArray(tagValue.size)) {
-        return [tagValue.size[0], tagValue.size[1]];
-      }
-      return [120, 120]; // fallback (safe default)
-    },
-  });
+  // ✅ MUST always return [width, height]
+  getSize: (img, tagValue, tagName) => {
+    if (tagName === "qr_code") {
+      return [120, 120];
+    }
+    if (tagName === "instructor_signature") {
+      return [150, 60];
+    }
+    return [100, 100];
+  },
+});
+
 
   const doc = new Docxtemplater(zip, {
     modules: [imageModule],
