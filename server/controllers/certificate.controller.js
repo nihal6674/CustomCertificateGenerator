@@ -11,8 +11,10 @@ const generateQR = require('../utils/qrGenerator');
 const fs = require("fs");
 const convertToPdf = require("../utils/docxToPdf");
 const uploadToR2 = require("../utils/uploadToR2");
-const downloadFromR2= require("../utils/downloadFromR2")
+const downloadFromR2 = require("../utils/downloadFromR2")
 const { getSignedViewUrl } = require("../utils/r2SignedUrl");
+const axios = require("axios");
+const { generateCertificateDoc } = require("../utils/pythonDocx.service");
 
 // const addWatermark = require("../utils/addWatermark");
 const normalizeDate = require("../utils/normalizeDate");
@@ -72,9 +74,9 @@ exports.issueSingleCertificate = async (req, res) => {
       });
     }
     console.log("STEP 2: Template fetched", {
-  hasTemplate: !!template,
-  templateFilePath: template?.templateFilePath,
-});
+      hasTemplate: !!template,
+      templateFilePath: template?.templateFilePath,
+    });
 
     /* ---------------- CERT NUMBER ---------------- */
     const baseCertNumber = await generateCertificateNumber();
@@ -86,105 +88,31 @@ exports.issueSingleCertificate = async (req, res) => {
       lastName,
     });
 
-    /* ---------------- QR ---------------- */
-    const qrBuffer = await generateQR(baseCertNumber);
 
-    // const testImagePath = path.join(__dirname, "..", "assets", "test-image.png");
-    // const qrBuffer = fs.readFileSync(testImagePath);
-    // console.log("USING STATIC IMAGE INSTEAD OF QR", {
-    //   isBuffer: Buffer.isBuffer(qrBuffer),
-    //   length: qrBuffer.length,
-    // });
+    /* ---------------- DOCX (PYTHON SERVICE) ---------------- */
 
+    const pythonPayload = {
+      templateKey: template.templateFilePath,
+      signatureKey: template.instructorSignaturePath,
+      outputKey: "certificates/",
 
-    console.log("STEP 3: Static image loaded", {
-  isBuffer: Buffer.isBuffer(qrBuffer),
-  length: qrBuffer.length,
-});
-
-    /* ---------------- DOWNLOAD FROM R2 ---------------- */
-    const templateBuffer = await downloadFromR2(
-      template.templateFilePath
-    );
-
-    const instructorSignatureBuffer = await downloadFromR2(
-      template.instructorSignaturePath
-    );
-
-    console.log("STEP 4: R2 downloads done", {
-  templateIsBuffer: Buffer.isBuffer(templateBuffer),
-  templateSize: templateBuffer?.length,
-  signIsBuffer: Buffer.isBuffer(instructorSignatureBuffer),
-  signSize: instructorSignatureBuffer?.length,
-});
-
-    // 🔐 HARD SAFETY CHECK (FIXES PROD CRASH)
-    if (!Buffer.isBuffer(qrBuffer)) {
-      throw new Error("QR code buffer invalid");
-    }
-
-    if (!Buffer.isBuffer(instructorSignatureBuffer)) {
-      throw new Error("Instructor signature buffer invalid");
-    }
-
-    /* ---------------- DOCX DATA ---------------- */
-    const docxData = {
-      first_name: firstName,
-      middle_name: middleName || "",
-      last_name: lastName,
-      class_name: className,
-      training_date: trainingDate,
-      issue_date: new Date().toISOString().split("T")[0],
-      certificate_number: baseCertNumber,
-      instructor_name: template.instructorName,
-      qr_code: qrBuffer,
-      instructor_signature: instructorSignatureBuffer,
+      data: {
+        first_name: firstName,
+        middle_name: middleName || "",
+        last_name: lastName,
+        class_name: className,
+        training_date: trainingDate,
+        issue_date: new Date().toISOString().split("T")[0],
+        certificate_number: baseCertNumber,
+        instructor_name: template.instructorName,
+      },
     };
 
-    /* ---------------- TEMP DOCX ---------------- */
-    const tempId = `${certificateNumber}-${Date.now()}`;
-    const outputDocxPath = path.join(
-      __dirname,
-      "..",
-      "uploads",
-      "certificates",
-      `${tempId}.docx`
-    );
-
-    const uploadsDir = path.join(__dirname, "..", "uploads", "certificates");
-fs.mkdirSync(uploadsDir, { recursive: true });
-
-console.log("QR TYPE:", qrBuffer?.constructor?.name);
-console.log("SIGN TYPE:", instructorSignatureBuffer?.constructor?.name);
-console.log("QR IS BUFFER:", Buffer.isBuffer(qrBuffer));
-console.log("SIGN IS BUFFER:", Buffer.isBuffer(instructorSignatureBuffer));
-
-console.log("STEP 5: About to generate DOCX", {
-  keys: Object.keys(docxData),
-  qrType: qrBuffer.constructor.name,
-  signType: instructorSignatureBuffer.constructor.name,
-});
-
-   try {
-    
-  await generateDocx(templateBuffer, docxData, outputDocxPath);
+    const docxPdfResult=await generateCertificateDoc(pythonPayload);
   
-} catch (e) {
-  console.error("DOCX ERROR:", e);
-  console.error("ERROR PROPERTIES:", e.properties);
-  throw e;
-}
+    const r2Key = docxPdfResult.key;
 
-console.log("STEP 6: DOCX generated successfully");
-/* ---------------- UPLOAD DOCX ---------------- */
-const r2Key = `certificates/${certificateNumber}.docx`;
-
-await uploadToR2({
-  filePath: outputDocxPath,
-  key: r2Key,
-});
-
-console.log("STEP 7: DOCX uploaded to R2", r2Key);
+    console.log("STEP 6: DOCX/PDF generated via Python", r2Key);
 
     /* ---------------- PDF ---------------- */
     // const pdfLocalPath = await convertToPdf(outputDocxPath);
@@ -202,7 +130,6 @@ console.log("STEP 7: DOCX uploaded to R2", r2Key);
 
 
     /* ---------------- CLEANUP ---------------- */
-    if (fs.existsSync(outputDocxPath)) fs.unlinkSync(outputDocxPath);
     // if (fs.existsSync(pdfLocalPath)) fs.unlinkSync(pdfLocalPath);
 
     /* ---------------- SAVE ---------------- */
@@ -275,8 +202,8 @@ exports.issueBulkCertificates = async (req, res) => {
 
           const trainingDate = normalizeDate(row.trainingDate);
           if (!trainingDate) {
-  throw new Error("Invalid or missing trainingDate");
-}
+            throw new Error("Invalid or missing trainingDate");
+          }
 
           // ---------------- VALIDATION ----------------
           if (!firstName || !lastName || !className || !trainingDate) {
@@ -310,72 +237,32 @@ exports.issueBulkCertificates = async (req, res) => {
           // ---------------- CERTIFICATE NUMBER ----------------
           const baseCertNumber = await generateCertificateNumber();
 
-          const certificateNumber = formatCertificateNumber({
-            certNumber: baseCertNumber,
-            firstName,
-            middleName: middleName || null,
-            lastName,
-          });
+          // const certificateNumber = formatCertificateNumber({
+          //   certNumber: baseCertNumber,
+          //   firstName,
+          //   middleName: middleName || null,
+          //   lastName,
+          // });
 
-          // ---------------- QR CODE ----------------
-          const qrBuffer = await generateQR(baseCertNumber);
+          const pythonPayload = {
+            templateKey: template.templateFilePath,
+            signatureKey: template.instructorSignaturePath,
+            outputKey: "", // Python builds filename itself
+            data: {
+              first_name: firstName,
+              middle_name: middleName || "",
+              last_name: lastName,
+              class_name: className,
+              training_date: trainingDate,
+              issue_date: new Date().toISOString(),
+              certificate_number: baseCertNumber,
+              instructor_name: template.instructorName,
+            },
+          };
 
-         const templateBuffer = await downloadFromR2(
-  template.templateFilePath
-);
+          const docxPdfResult = await generateCertificateDoc(pythonPayload);
 
-const instructorSignatureBuffer = await downloadFromR2(
-  template.instructorSignaturePath
-);
-
-
-          // ---------------- DOCX DATA ----------------
-          const docxData = {
-  first_name: firstName,
-  middle_name: middleName || "",
-  last_name: lastName,
-  class_name: className,
-  training_date: trainingDate,
-  issue_date: new Date().toISOString().split("T")[0],
-  certificate_number: baseCertNumber,
-  instructor_name: template.instructorName,
-  qr_code: qrBuffer,
-  instructor_signature: instructorSignatureBuffer,
-};
-          // ---------------- TEMP FILE ----------------
-          const tempId = `${certificateNumber}-${Date.now()}-${i}`;
-
-          const outputDocxPath = path.join(
-            __dirname,
-            "..",
-            "uploads",
-            "certificates",
-            `${tempId}.docx`
-          );
-
-         await generateDocx(
-  templateBuffer,
-  docxData,
-  outputDocxPath
-);
-
-
-          // ---------------- PDF ----------------
-          const pdfLocalPath = await convertToPdf(outputDocxPath);
-
-          // R2 object key (clean naming)
-          const r2Key = `certificates/${certificateNumber}.pdf`;
-
-          // Upload to Cloudflare R2
-          await uploadToR2({
-            filePath: pdfLocalPath,
-            key: r2Key,
-          });
-
-          // Cleanup temp files
-          if (fs.existsSync(outputDocxPath)) fs.unlinkSync(outputDocxPath);
-          if (fs.existsSync(pdfLocalPath)) fs.unlinkSync(pdfLocalPath);
-
+          const pdfR2Key = docxPdfResult.key;
 
           // ---------------- SAVE CERTIFICATE ----------------
           await Certificate.create({
@@ -388,7 +275,7 @@ const instructorSignatureBuffer = await downloadFromR2(
             issueDate: new Date(),
             instructorName: template.instructorName,
             templateId: template._id,
-            pdfFilePath: r2Key,
+            pdfFilePath: pdfR2Key,
           });
 
           await BulkJob.findByIdAndUpdate(job._id, {
@@ -424,6 +311,7 @@ const instructorSignatureBuffer = await downloadFromR2(
   }
 };
 
+//python service to be added
 exports.getBulkJobStatus = async (req, res) => {
   const job = await BulkJob.findById(req.params.jobId);
 
@@ -441,6 +329,7 @@ exports.getBulkJobStatus = async (req, res) => {
   });
 };
 
+// python service to be added
 exports.reissueFailedCertificates = async (req, res) => {
   try {
     const { jobId } = req.params;
@@ -507,70 +396,26 @@ exports.reissueFailedCertificates = async (req, res) => {
         /* ---------------- CERTIFICATE NUMBER ---------------- */
         const baseCertNumber = await generateCertificateNumber();
 
-        const certificateNumber = formatCertificateNumber({
-          certNumber: baseCertNumber,
-          firstName,
-          middleName: middleName || null,
-          lastName,
-        });
+        
+          const pythonPayload = {
+            templateKey: template.templateFilePath,
+            signatureKey: template.instructorSignaturePath,
+            outputKey: "", // Python builds filename itself
+            data: {
+              first_name: firstName,
+              middle_name: middleName || "",
+              last_name: lastName,
+              class_name: className,
+              training_date: trainingDate,
+              issue_date: new Date().toISOString(),
+              certificate_number: baseCertNumber,
+              instructor_name: template.instructorName,
+            },
+          };
 
-        /* ---------------- QR CODE ---------------- */
-        const qrBuffer = await generateQR(baseCertNumber);
+          const docxPdfResult = await generateCertificateDoc(pythonPayload);
 
-        /* ---------------- DOWNLOAD TEMPLATE & SIGNATURE FROM R2 ---------------- */
-        const templateBuffer = await downloadFromR2(
-          template.templateFilePath
-        );
-
-        const instructorSignatureBuffer = await downloadFromR2(
-          template.instructorSignaturePath
-        );
-
-        /* ---------------- DOCX DATA ---------------- */
-        const docxData = {
-          first_name: firstName,
-          middle_name: middleName || "",
-          last_name: lastName,
-          class_name: className,
-          training_date: normalizedDate,
-          issue_date: new Date().toISOString().split("T")[0],
-          certificate_number: baseCertNumber,
-          instructor_name: template.instructorName,
-          qr_code: qrBuffer,
-          instructor_signature: instructorSignatureBuffer,
-        };
-
-        /* ---------------- TEMP DOCX FILE ---------------- */
-        const tempId = `${certificateNumber}-${Date.now()}-${i}`;
-
-        const outputDocxPath = path.join(
-          __dirname,
-          "..",
-          "uploads",
-          "certificates",
-          `${tempId}.docx`
-        );
-
-       await generateDocx(
-          templateBuffer, // ✅ BUFFER FROM R2
-          docxData,
-          outputDocxPath
-        );
-
-        /* ---------------- PDF CONVERSION ---------------- */
-        const pdfLocalPath = await convertToPdf(outputDocxPath);
-
-        /* ---------------- UPLOAD PDF TO R2 ---------------- */
-        const r2Key = `certificates/${certificateNumber}.pdf`;
-
-        await uploadToR2({
-          filePath: pdfLocalPath,
-          key: r2Key,
-        });
-
-        /* ---------------- CLEANUP LOCAL FILES ---------------- */
-        if (fs.existsSync(outputDocxPath)) fs.unlinkSync(outputDocxPath);
-        if (fs.existsSync(pdfLocalPath)) fs.unlinkSync(pdfLocalPath);
+          const pdfR2Key = docxPdfResult.key;
 
         /* ---------------- SAVE CERTIFICATE ---------------- */
         await Certificate.create({
@@ -583,7 +428,7 @@ exports.reissueFailedCertificates = async (req, res) => {
           issueDate: new Date(),
           instructorName: template.instructorName,
           templateId: template._id,
-          pdfFilePath: r2Key,
+          pdfFilePath: pdfR2Key,
         });
 
         /* ---------------- MARK ERROR RESOLVED ---------------- */
