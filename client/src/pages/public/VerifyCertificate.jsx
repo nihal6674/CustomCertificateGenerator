@@ -4,6 +4,7 @@ import {
   CheckCircle,
   XCircle,
   AlertTriangle,
+  Download
 } from "lucide-react";
 
 import { API_BASE_URL } from "../../api/config";
@@ -44,6 +45,11 @@ export default function VerifyCertificate() {
     }
   }
 
+  const handleDownload = () => {
+  window.location.href = `${API_URL}/download/${certificateNumber}`;
+};
+
+
   return (
     <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center p-6">
       <div className="w-full max-w-xl bg-slate-800 border border-slate-700 rounded-xl p-6 space-y-6">
@@ -74,6 +80,20 @@ export default function VerifyCertificate() {
           />
         )}
 
+      {!loading && result && result.valid && !result.revoked && (
+  <div className="pt-4">
+    <button
+      onClick={handleDownload}
+      className="w-full inline-flex items-center justify-center gap-2
+        bg-sky-500 hover:bg-sky-600 transition
+        py-2.5 rounded-lg font-medium"
+    >
+      <Download size={18} />
+      Download Certificate
+    </button>
+  </div>
+)}
+
         {/* RESULT */}
         {!loading && result && (
           <>
@@ -86,7 +106,7 @@ export default function VerifyCertificate() {
                   />
                 }
                 title="Certificate is Valid"
-                message="This certificate is authentic and issued by the organization."
+                message="This certificate is authentic and issued by The Loss Prevention Group, Inc. BSIS Lic. # TFF 1308"
               />
             ) : result.revoked ? (
               <StatusBox
