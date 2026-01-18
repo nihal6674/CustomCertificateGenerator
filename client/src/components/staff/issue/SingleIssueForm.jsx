@@ -158,7 +158,7 @@ const handleSubmit = async (e) => {
 
       {/* Training Date */}
       <Input
-        label="Training Date"
+        label="Training Completion Date"
         type="date"
         value={form.trainingDate}
         onChange={(v) => handleChange("trainingDate", v)}
