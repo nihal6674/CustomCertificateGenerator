@@ -120,7 +120,7 @@ export default function BulkIssueForm() {
       <span className="font-semibold"> (case-sensitive)</span>:
     </li>
     <li className="ml-4 font-mono text-blue-300">
-      firstName, lastName, className, trainingDate
+      firstName, lastName, className, trainingDate, email
     </li>
     <li>
       Column order does <span className="font-semibold">not</span> matter
