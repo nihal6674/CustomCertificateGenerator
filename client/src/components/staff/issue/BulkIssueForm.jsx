@@ -111,33 +111,51 @@ export default function BulkIssueForm() {
       {/* EXCEL FORMAT INSTRUCTIONS */}
 <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 text-sm text-blue-200">
   <p className="font-medium mb-2">
-    ⚠️ Please ensure your Excel file follows this format:
+    ⚠️ Important Notes for Bulk Certificate Upload
   </p>
 
   <ul className="list-disc list-inside space-y-1">
     <li>
-      Excel must contain the following columns
-      <span className="font-semibold"> (case-sensitive)</span>:
+      Please ensure your Excel file follows the required format exactly
+      <span className="font-semibold"> (column names are case-sensitive)</span>.
     </li>
+
     <li className="ml-4 font-mono text-blue-300">
       firstName, lastName, className, trainingDate, email
     </li>
+
     <li>
-      Column order does <span className="font-semibold">not</span> matter
+      Column order does <span className="font-semibold">not</span> matter.
     </li>
+
     <li>
       <span className="font-semibold">className</span> must match an
-      <span className="font-semibold"> active certificate template</span>
+      <span className="font-semibold"> active certificate template</span>.
     </li>
+
     <li>
       <span className="font-semibold">trainingDate</span> must be a valid
-      Excel date or date string
+      Excel date or a properly formatted date string.
     </li>
+
     <li>
-      Extra columns are allowed and will be ignored
+      Extra columns are allowed and will be ignored during processing.
+    </li>
+
+    <li className="mt-2">
+      During bulk processing, please <span className="font-semibold">do not refresh the page</span>.
+      Refreshing may interrupt progress visibility while certificates are being generated.
+    </li>
+
+    <li>
+      If any rows fail to process, you can download the
+      <span className="font-semibold"> failed records report</span>.
+      The report includes an <span className="font-semibold">Error</span> column
+      explaining the exact reason each row failed, so corrections can be made easily.
     </li>
   </ul>
 </div>
+
 
       {/* FILE INPUT */}
       <div>
