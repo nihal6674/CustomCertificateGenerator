@@ -21,7 +21,7 @@ router.post(
 router.post(
   "/issue-bulk",
   auth,
-  role("ADMIN","STAFF"),
+  role("ADMIN", "STAFF"),
   upload.single("file"), // Excel file
   controller.issueBulkCertificates
 );
@@ -30,7 +30,7 @@ router.post(
 router.get(
   "/bulk-status/:jobId",
   auth,
-  role("ADMIN","STAFF"),
+  role("ADMIN", "STAFF"),
   controller.getBulkJobStatus
 );
 
@@ -39,14 +39,14 @@ router.get(
 router.post(
   "/reissue-failed/:jobId",
   auth,
-  role("ADMIN","STAFF"),
+  role("ADMIN", "STAFF"),
   controller.reissueFailedCertificates
 );
 
 router.get(
   "/bulk-failed/:jobId/export",
   auth,
-  role("ADMIN","STAFF"),
+  role("ADMIN", "STAFF"),
   controller.exportFailedBulkRows
 );
 
@@ -77,5 +77,11 @@ router.get(
   "/download/:certificateNumber",
   controller.downloadCertificate
 );
+
+router.post("/dispatch-emails", auth,
+  role("STAFF"), controller.dispatchCertificateEmails);
+
+router.get("/email-stats",auth,
+  role("ADMIN","STAFF"), controller.getEmailStats);
 
 module.exports = router;

@@ -114,5 +114,34 @@ export async function getCertificates({ page = 1, limit = 10, search = "" }) {
   return res.json();
 }
 
+/* ---------------- DISPATCH CERTIFICATE EMAILS ---------------- */
+export async function dispatchCertificateEmails() {
+  const res = await fetch(`${API_URL}/dispatch-emails`, {
+    method: "POST",
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || "Email dispatch failed");
+  }
+
+  return res.json();
+}
+
+/* ---------------- EMAIL STATS ---------------- */
+export async function getCertificateEmailStats() {
+  const res = await fetch(`${API_URL}/email-stats`, {
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message || "Failed to fetch email stats");
+  }
+
+  return res.json();
+}
+
 
 

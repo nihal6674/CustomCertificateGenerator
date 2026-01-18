@@ -63,6 +63,23 @@ const certificateSchema = new mongoose.Schema(
       enum: ["ISSUED", "REVOKED"],
       default: "ISSUED",
     },
+    email: {
+      type: String,
+      required: true,
+      lowercase: true,
+      trim: true,
+    },
+
+    emailStatus: {
+      type: String,
+      enum: ["PENDING","PROCESSING","SENT","FAILED"],
+      default: "PENDING",
+    },
+
+    emailSentAt: Date,
+
+    emailError: String,
+
   },
   { timestamps: true }
 );
@@ -74,5 +91,7 @@ certificateSchema.index(
   { firstName: 1, lastName: 1, className: 1 },
   { unique: true }
 );
-
+certificateSchema.index(
+  { emailStatus: 1, status: 1 }
+);
 module.exports = mongoose.model("Certificate", certificateSchema);

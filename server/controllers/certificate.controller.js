@@ -8,6 +8,8 @@ const generateCertificateNumber = require('../utils/certificateNumber');
 const formatCertificateNumber = require('../utils/formatCertificateNumber')
 const generateDocx = require('../utils/docxGenerator');
 const generateQR = require('../utils/qrGenerator');
+const { sendCertificateEmail } = require("../services/emailService");
+
 const fs = require("fs");
 const convertToPdf = require("../utils/docxToPdf");
 const uploadToR2 = require("../utils/uploadToR2");
@@ -15,22 +17,13 @@ const downloadFromR2 = require("../utils/downloadFromR2")
 const { getSignedViewUrl } = require("../utils/r2SignedUrl");
 const axios = require("axios");
 const { generateCertificateDoc } = require("../utils/pythonDocx.service");
-
+const BATCH_SIZE = Math.max(
+  1,
+  parseInt(process.env.CERT_EMAIL_BATCH_SIZE, 10) || 50
+);
+console.log("BATCH NUMBER",process.env.CERT_EMAIL_BATCH_SIZE);
 // const addWatermark = require("../utils/addWatermark");
 const normalizeDate = require("../utils/normalizeDate");
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 exports.issueSingleCertificate = async (req, res) => {
   console.log("STEP 1: Request received");
@@ -42,10 +35,11 @@ exports.issueSingleCertificate = async (req, res) => {
       lastName,
       className,
       trainingDate,
+      email
     } = req.body;
 
     /* ---------------- VALIDATION ---------------- */
-    if (!firstName || !lastName || !className || !trainingDate) {
+    if (!firstName || !lastName || !className || !trainingDate || !email) {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
@@ -144,6 +138,8 @@ exports.issueSingleCertificate = async (req, res) => {
       instructorName: template.instructorName,
       templateId: template._id,
       pdfFilePath: r2Key,
+      email,
+  emailStatus: "PENDING",
     });
 
     res.status(201).json({
@@ -198,6 +194,7 @@ exports.issueBulkCertificates = async (req, res) => {
             middleName, // ✅ optional
             lastName,
             className,
+            email
           } = row;
 
           const trainingDate = normalizeDate(row.trainingDate);
@@ -206,7 +203,7 @@ exports.issueBulkCertificates = async (req, res) => {
           }
 
           // ---------------- VALIDATION ----------------
-          if (!firstName || !lastName || !className || !trainingDate) {
+          if (!firstName || !lastName || !className || !trainingDate ||!email) {
             throw new Error("Missing or invalid required fields");
           }
 
@@ -276,6 +273,8 @@ exports.issueBulkCertificates = async (req, res) => {
             instructorName: template.instructorName,
             templateId: template._id,
             pdfFilePath: pdfR2Key,
+            email,
+  emailStatus: "PENDING",
           });
 
           await BulkJob.findByIdAndUpdate(job._id, {
@@ -740,3 +739,110 @@ exports.downloadCertificate = async (req, res) => {
   }
 };
 
+
+exports.dispatchCertificateEmails = async (req, res) => {
+  console.log("📨 [DISPATCH] Request received");
+
+  // 1️⃣ Fetch candidates
+  const certificates = await Certificate.find({
+    status: "ISSUED",
+    emailStatus: { $in: ["PENDING", "FAILED"] },
+  }).limit(BATCH_SIZE);
+
+  console.log(
+    `📨 [DISPATCH] Found ${certificates.length} certificates`
+  );
+
+  if (!certificates.length) {
+    return res.json({ message: "No pending certificate emails" });
+  }
+
+  // 2️⃣ LOCK THEM (PROCESSING)
+  await Certificate.updateMany(
+    { _id: { $in: certificates.map(c => c._id) } },
+    { emailStatus: "PROCESSING" }
+  );
+
+  res.json({
+    message: "Email dispatch started",
+    count: certificates.length,
+  });
+
+  // 3️⃣ Background processing
+  process.nextTick(async () => {
+    let success = 0;
+    let failed = 0;
+
+    for (let i = 0; i < certificates.length; i++) {
+      const cert = certificates[i];
+
+      console.log(
+        `➡️ [${i + 1}/${certificates.length}] ${cert.email} | ${cert.certificateNumber}`
+      );
+
+      try {
+        const studentName = [
+  cert.firstName,
+  cert.middleName,
+  cert.lastName,
+].filter(Boolean).join(" ");
+
+await sendCertificateEmail({
+  to: cert.email,
+  studentName,
+  courseTitle: cert.className,
+  trainingDate: cert.trainingDate.toDateString(),
+  certificateNumber: cert.certificateNumber,
+  pdfKey: cert.pdfFilePath,
+});
+
+
+        await Certificate.findByIdAndUpdate(cert._id, {
+          emailStatus: "SENT",
+          emailSentAt: new Date(),
+          emailError: null,
+        });
+
+        success++;
+        console.log(
+          `✅ [SENT] ${cert.email} | ${cert.certificateNumber}`
+        );
+      } catch (err) {
+        failed++;
+        console.error(
+          `❌ [FAILED] ${cert.email} | ${cert.certificateNumber}`,
+          err.message
+        );
+
+        await Certificate.findByIdAndUpdate(cert._id, {
+          emailStatus: "FAILED",
+          emailError: err.message,
+        });
+      }
+    }
+
+    console.log(
+      `📊 [DISPATCH COMPLETE] Total=${certificates.length}, Sent=${success}, Failed=${failed}`
+    );
+  });
+};
+
+// controllers/certificateEmailController.js
+exports.getEmailStats = async (req, res) => {
+  const [pending, sent, failed] = await Promise.all([
+    Certificate.countDocuments({
+      status: "ISSUED",
+      emailStatus: "PENDING",
+    }),
+    Certificate.countDocuments({
+      status: "ISSUED",
+      emailStatus: "SENT",
+    }),
+    Certificate.countDocuments({
+      status: "ISSUED",
+      emailStatus: "FAILED",
+    }),
+  ]);
+
+  res.json({ pending, sent, failed });
+};

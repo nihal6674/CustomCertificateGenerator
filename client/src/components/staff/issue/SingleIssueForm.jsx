@@ -6,12 +6,14 @@ import toast from "react-hot-toast";
 
 export default function SingleIssueForm() {
   const [form, setForm] = useState({
-    firstName: "",
-    middleName: "",
-    lastName: "",
-    className: "",
-    trainingDate: "",
-  });
+  firstName: "",
+  middleName: "",
+  lastName: "",
+  email: "",
+  className: "",
+  trainingDate: "",
+});
+
 
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -75,6 +77,8 @@ const handleSubmit = async (e) => {
       lastName: "",
       className: "",
       trainingDate: "",
+        email: "",
+
     });
   } catch (err) {
     toast.error(err.message || "Failed to issue certificate");
@@ -114,6 +118,19 @@ const handleSubmit = async (e) => {
         onChange={(v) => handleChange("lastName", v)}
         required
       />
+      {/* Email */}
+<Input
+  label="Email Address"
+  type="email"
+  value={form.email}
+  onChange={(v) => handleChange("email", v)}
+  required
+/>
+<p className="text-xs text-slate-500 mt-1">
+  Certificate download link will be sent to this email.
+</p>
+
+
 
       {/* Class Name */}
       <div>
