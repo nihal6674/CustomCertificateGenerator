@@ -68,11 +68,11 @@ export default function AdminDashboard() {
               />
 
               <DashboardCard
-                title="Allot / Generate Certificate"
-                description="Generate certificates for students"
-                link="/staff/generate"
-                accent="emerald"
-              />
+  title="Generate Certificates & Email Notifications"
+  description="Issue certificates for students and manage delivery"
+  link="/staff/generate"
+  accent="emerald"
+/>
             </>
           )}
         </div>
