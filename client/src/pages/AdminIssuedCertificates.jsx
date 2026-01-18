@@ -22,6 +22,10 @@ export default function AdminIssuedCertificates() {
   const limit = 10;
   const [total, setTotal] = useState(0);
 
+const [actionCert, setActionCert] = useState(null);
+const [notifyStudent, setNotifyStudent] = useState(true);
+const [adminMessage, setAdminMessage] = useState("");
+
   /* ---------------- LOAD DATA ---------------- */
   const loadCertificates = async () => {
     setLoading(true);
@@ -46,30 +50,42 @@ export default function AdminIssuedCertificates() {
   }, [page, search]);
 
   /* ---------------- TOGGLE STATUS ---------------- */
-  const toggleStatus = async (certificateNumber) => {
-    if (!isAdmin) return toast.error("Not authorized");
+  const toggleStatus = async () => {
+  if (!isAdmin || !actionCert) return;
 
-    const t = toast.loading("Updating certificate status...");
-    try {
-      const res = await fetch(
-        `${API_URL}/status/${certificateNumber}`,
-        {
-          method: "PATCH",
-          credentials: "include",
-        }
-      );
+  const t = toast.loading("Updating certificate status...");
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message);
+  try {
+    const res = await fetch(
+      `${API_URL}/status/${actionCert.certificateNumber}`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          notifyStudent,
+          adminMessage: adminMessage.trim(),
+        }),
       }
+    );
 
-      toast.success("Certificate status updated", { id: t });
-      loadCertificates();
-    } catch (err) {
-      toast.error(err.message || "Action failed", { id: t });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message);
     }
-  };
+
+    toast.success("Certificate status updated", { id: t });
+    setActionCert(null);
+    setAdminMessage("");
+    setNotifyStudent(true);
+    loadCertificates();
+  } catch (err) {
+    toast.error(err.message || "Action failed", { id: t });
+  }
+};
+
 
   const totalPages = Math.ceil(total / limit);
 
@@ -170,19 +186,16 @@ export default function AdminIssuedCertificates() {
 
                     {isAdmin && (
                       <button
-                        onClick={() =>
-                          toggleStatus(c.certificateNumber)
-                        }
-                        className={`px-3 py-1 rounded text-sm ${
-                          c.status === "ISSUED"
-                            ? "bg-red-500 hover:bg-red-600"
-                            : "bg-emerald-500 hover:bg-emerald-600"
-                        }`}
-                      >
-                        {c.status === "ISSUED"
-                          ? "Revoke"
-                          : "Reinstate"}
-                      </button>
+  onClick={() => setActionCert(c)}
+  className={`px-3 py-1 rounded text-sm ${
+    c.status === "ISSUED"
+      ? "bg-red-500 hover:bg-red-600"
+      : "bg-emerald-500 hover:bg-emerald-600"
+  }`}
+>
+  {c.status === "ISSUED" ? "Revoke" : "Reinstate"}
+</button>
+
                     )}
                   </td>
                 </tr>
@@ -220,6 +233,69 @@ export default function AdminIssuedCertificates() {
   certificate={viewCert}
   onClose={() => setViewCert(null)}
 />
+{actionCert && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+    <div className="bg-slate-800 border border-slate-700 rounded-xl w-full max-w-md p-6 space-y-4">
+      <h3 className="text-lg font-semibold">
+        {actionCert.status === "ISSUED"
+          ? "Revoke Certificate"
+          : "Reinstate Certificate"}
+      </h3>
+
+      <p className="text-sm text-slate-400">
+        Certificate:{" "}
+        <span className="font-mono text-slate-200">
+          {actionCert.certificateNumber}
+        </span>
+      </p>
+
+      {/* Notify checkbox */}
+      <label className="flex items-start gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={notifyStudent}
+          onChange={(e) => setNotifyStudent(e.target.checked)}
+          className="mt-1"
+        />
+        <span>
+          Notify student by email
+        </span>
+      </label>
+
+      {/* Admin message */}
+      {notifyStudent && (
+        <textarea
+          rows={3}
+          value={adminMessage}
+          onChange={(e) => setAdminMessage(e.target.value)}
+          placeholder="Optional message to include in the email"
+          className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm resize-none"
+        />
+      )}
+
+      {/* Actions */}
+      <div className="flex justify-end gap-3 pt-2">
+        <button
+          onClick={() => setActionCert(null)}
+          className="px-4 py-2 rounded bg-slate-700 hover:bg-slate-600"
+        >
+          Cancel
+        </button>
+
+        <button
+          onClick={toggleStatus}
+          className={`px-4 py-2 rounded font-medium ${
+            actionCert.status === "ISSUED"
+              ? "bg-red-500 hover:bg-red-600"
+              : "bg-emerald-500 hover:bg-emerald-600"
+          }`}
+        >
+          Confirm
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
     </div>
   );

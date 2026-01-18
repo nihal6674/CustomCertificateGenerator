@@ -9,7 +9,7 @@ const formatCertificateNumber = require('../utils/formatCertificateNumber')
 const generateDocx = require('../utils/docxGenerator');
 const generateQR = require('../utils/qrGenerator');
 const { sendCertificateEmail } = require("../services/emailService");
-
+const { sendCertificateStatusEmail} = require("../utils/sendCertificateStatusEmail")
 const fs = require("fs");
 const convertToPdf = require("../utils/docxToPdf");
 const uploadToR2 = require("../utils/uploadToR2");
@@ -601,6 +601,7 @@ exports.verifyCertificate = async (req, res) => {
 exports.toggleCertificateStatus = async (req, res) => {
   try {
     const certificateNumber = req.params.certificateNumber.trim();
+    const { notifyStudent = false, adminMessage = "" } = req.body;
 
     const certificate = await Certificate.findOne({ certificateNumber });
 
@@ -617,6 +618,33 @@ exports.toggleCertificateStatus = async (req, res) => {
     certificate.status = newStatus;
     await certificate.save();
 
+    // 📧 Optional email notification
+    if (notifyStudent && certificate.email) {
+      try {
+        const studentName = [
+          certificate.firstName,
+          certificate.middleName,
+          certificate.lastName,
+        ]
+          .filter(Boolean)
+          .join(" ");
+
+        await sendCertificateStatusEmail({
+          to: certificate.email,
+          studentName,
+          certificateNumber: certificate.certificateNumber,
+          status: newStatus,
+          adminMessage,
+        });
+      } catch (emailErr) {
+        console.error(
+          "Email notification failed:",
+          emailErr.message
+        );
+        // ❗ Do NOT fail the request because email failed
+      }
+    }
+
     res.json({
       message:
         newStatus === "REVOKED"
@@ -632,6 +660,7 @@ exports.toggleCertificateStatus = async (req, res) => {
     });
   }
 };
+
 
 exports.getCertificates = async (req, res) => {
   try {
