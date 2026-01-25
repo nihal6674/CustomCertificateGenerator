@@ -79,7 +79,7 @@ router.get(
 );
 
 router.post("/dispatch-emails", auth,
-  role("STAFF"), controller.dispatchCertificateEmails);
+  role("STAFF","ADMIN"), controller.dispatchCertificateEmails);
 
 router.get("/email-stats",auth,
   role("ADMIN","STAFF"), controller.getEmailStats);
