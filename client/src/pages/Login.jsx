@@ -23,21 +23,25 @@ export default function Login() {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    if (!validate()) return;
+  e.preventDefault();
+  setError("");
+  if (!validate()) return;
 
-    setLoading(true);
-    try {
-      const data = await login(email, password);
-      setUser(data.user);
-      data.user.role === "ADMIN" ? navigate("/admin") : navigate("/staff");
-    } catch (err) {
-      setError(err.message || "Login failed");
-    } finally {
-      setLoading(false);
-    }
-  };
+  setLoading(true);
+  try {
+    const data = await login(email, password);
+    setUser(data.user);
+
+    // Single entry point for ADMIN + STAFF
+    navigate("/dashboard");
+
+  } catch (err) {
+    setError(err.message || "Login failed");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center px-4">
@@ -109,11 +113,17 @@ export default function Login() {
           </div>
 
           <button
-            disabled={loading}
-            className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 transition p-3 rounded-lg font-semibold text-slate-900"
-          >
-            {loading ? "Signing in…" : "Login"}
-          </button>
+  type="submit"
+  disabled={loading}
+  className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white py-2 rounded"
+>
+  {loading && (
+    <span className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+  )}
+
+  {loading ? "Signing in..." : "Sign In"}
+</button>
+
 
           <p className="text-xs text-slate-500 mt-6 text-center">
             © {new Date().getFullYear()} Your Company. All rights reserved.

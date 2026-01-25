@@ -27,46 +27,47 @@ export default function Navbar() {
 
         {/* CENTER — Navigation */}
         <div className="flex items-center gap-6">
-          {/* ADMIN NAV */}
-          {user.role === "ADMIN" && (
-            <>
-              <NavLink to="/admin" end className={navClass}>
-                Home
-              </NavLink>
 
-              {user.isSuperAdmin && (
-                <NavLink to="/admin/users" className={navClass}>
-                  Users
-                </NavLink>
-              )}
+  {/* DASHBOARD (ADMIN + STAFF) */}
+  <NavLink to="/dashboard" end className={navClass}>
+    Dashboard
+  </NavLink>
 
-              <NavLink to="/admin/templates" className={navClass}>
-                Templates
-              </NavLink>
+  {/* ISSUE CERTIFICATES (ADMIN + STAFF) */}
+  <NavLink to="/certificates/issue" className={navClass}>
+    Issue / Bulk Issue
+  </NavLink>
 
-              <NavLink to="/admin/certificates" className={navClass}>
-                Issued Certificates
-              </NavLink>
-            </>
-          )}
+  {/* ADMIN NAV */}
+  {user.role === "ADMIN" && (
+    <>
+      {user.isSuperAdmin && (
+        <NavLink to="/admin/users" className={navClass}>
+          Users
+        </NavLink>
+      )}
 
-          {/* STAFF NAV */}
-          {user.role === "STAFF" && (
-            <>
-              <NavLink to="/staff" end className={navClass}>
-                Dashboard
-              </NavLink>
+      <NavLink to="/admin/templates" className={navClass}>
+        Templates
+      </NavLink>
 
-              <NavLink to="/staff/certificates" className={navClass}>
-                Issued Certificates
-              </NavLink>
+      <NavLink to="/admin/certificates" className={navClass}>
+        Issued Certificates
+      </NavLink>
+    </>
+  )}
 
-              <NavLink to="/staff/issue" className={navClass}>
-                Issue / Bulk Issue
-              </NavLink>
-            </>
-          )}
-        </div>
+  {/* STAFF NAV */}
+  {user.role === "STAFF" && (
+    <>
+      <NavLink to="/staff/certificates" className={navClass}>
+        Issued Certificates
+      </NavLink>
+    </>
+  )}
+
+</div>
+
 
         {/* RIGHT — User + Logout */}
         <div className="flex items-center gap-4">

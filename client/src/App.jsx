@@ -7,12 +7,16 @@ import {
 } from "react-router-dom";
 import Login from "./pages/Login";
 import VerifyCertificate from "./pages/public/VerifyCertificate";
-import AdminDashboard from "./pages/AdminDashboard";
-import StaffDashboard from "./pages/Staff/StaffDashboard";
+// import AdminDashboard from "./pages/AdminDashboard";
+// import StaffDashboard from "./pages/Staff/StaffDashboard";
+
+import Dashboard from "./pages/Dashboard";
+
 import AdminUsers from "./pages/AdminUsers";
 import AdminTemplates from "./pages/AdminTemplates";
 import AdminIssuedCertificates from "./pages/AdminIssuedCertificates";
 
+import PublicRoute from "./components/PublicRoute";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./context/AuthContext";
 import Navbar from "./components/Navbar";
@@ -49,13 +53,33 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           {/* PUBLIC */}
-          <Route path="/login" element={<Login />} />
+<Route
+  path="/login"
+  element={
+    <PublicRoute>
+      <Login />
+    </PublicRoute>
+  }
+/>
           {/* ✅ PUBLIC CERTIFICATE VERIFICATION */}
-  <Route
-    path="/verify/:certificateNumber"
-    element={<VerifyCertificate />}
-  />
-  <Route path="/certificate/download" element={<CertificateDownloadPage />} />
+          <Route
+            path="/verify/:certificateNumber"
+            element={<VerifyCertificate />}
+          />
+          <Route
+            path="/certificate/download"
+            element={<CertificateDownloadPage />}
+          />
+          {/* SHARED DASHBOARD (ADMIN + STAFF) */}
+          <Route
+            element={
+              <ProtectedRoute roles={["ADMIN", "STAFF"]}>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/dashboard" element={<Dashboard />} />
+          </Route>
 
           {/* ADMIN */}
           <Route
@@ -65,7 +89,6 @@ export default function App() {
               </ProtectedRoute>
             }
           >
-            <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/users" element={<AdminUsers />} />
             <Route path="/admin/templates" element={<AdminTemplates />} />
             <Route
@@ -77,19 +100,19 @@ export default function App() {
           {/* STAFF */}
           <Route
             element={
-              <ProtectedRoute roles={["STAFF"]}>
+              <ProtectedRoute roles={["STAFF","ADMIN"]}>
                 <AppLayout />
               </ProtectedRoute>
             }
           >
-            <Route path="/staff" element={<StaffDashboard />} />
             <Route
               path="/staff/certificates"
               element={<StaffCertificatesPage />}
             />
-            <Route path="/staff/issue" element={<StaffIssuePage />} />
+<Route path="/certificates/issue" element={<StaffIssuePage />} />
           </Route>
-
+            {/* ROOT REDIRECT */}
+<Route path="/" element={<Navigate to="/dashboard" replace />} />
           {/* FALLBACK */}
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
