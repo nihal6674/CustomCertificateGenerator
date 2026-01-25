@@ -6,26 +6,25 @@ import toast from "react-hot-toast";
 
 export default function SingleIssueForm() {
   const [form, setForm] = useState({
-  firstName: "",
-  middleName: "",
-  lastName: "",
-  email: "",
-  className: "",
-  trainingDate: "",
-});
-
+    firstName: "",
+    middleName: "",
+    lastName: "",
+    email: "",
+    className: "",
+    trainingDate: "",
+  });
 
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(false);
   const [fetchingTemplates, setFetchingTemplates] = useState(true);
   const steps = [
-  "Validating details",
-  "Generating certificate",
-  "Uploading document",
-  "Finalizing",
-];
+    "Validating details",
+    "Generating certificate",
+    "Uploading document",
+    "Finalizing",
+  ];
 
-const [activeStep, setActiveStep] = useState(0);
+  const [activeStep, setActiveStep] = useState(0);
 
   /* ---------- FETCH ACTIVE TEMPLATES ---------- */
   useEffect(() => {
@@ -44,51 +43,53 @@ const [activeStep, setActiveStep] = useState(0);
   }, []);
 
   const handleChange = (field, value) => {
+    // Auto caps + only letters for name fields
+    if (["firstName", "middleName", "lastName"].includes(field)) {
+      value = value.replace(/[^a-zA-Z ]/g, "").toUpperCase(); // auto caps
+    }
+
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setLoading(true);
-  setActiveStep(0); // Step 1: Validating
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setActiveStep(0); // Step 1: Validating
 
-  try {
-    // STEP 1 → STEP 2 (quick)
-    await new Promise((r) => setTimeout(r, 400));
-    setActiveStep(1); // Generating certificate
+    try {
+      // STEP 1 → STEP 2 (quick)
+      await new Promise((r) => setTimeout(r, 400));
+      setActiveStep(1); // Generating certificate
 
-    // STEP 2 → STEP 3 (slow)
-    await new Promise((r) => setTimeout(r, 900));
-    setActiveStep(2); // Uploading document
+      // STEP 2 → STEP 3 (slow)
+      await new Promise((r) => setTimeout(r, 900));
+      setActiveStep(2); // Uploading document
 
-    // STEP 3 → STEP 4 (medium)
-    await new Promise((r) => setTimeout(r, 1800));
-    setActiveStep(3); // Finalizing
+      // STEP 3 → STEP 4 (medium)
+      await new Promise((r) => setTimeout(r, 1800));
+      setActiveStep(3); // Finalizing
 
-    // 🔥 REAL BACKEND CALL (no fake delay here)
-    await issueSingleCertificate(form);
+      // 🔥 REAL BACKEND CALL (no fake delay here)
+      await issueSingleCertificate(form);
 
-    // ✅ Success — stay on final step
-    toast.success("Certificate issued successfully");
+      // ✅ Success — stay on final step
+      toast.success("Certificate issued successfully");
 
-    setForm({
-      firstName: "",
-      middleName: "",
-      lastName: "",
-      className: "",
-      trainingDate: "",
+      setForm({
+        firstName: "",
+        middleName: "",
+        lastName: "",
+        className: "",
+        trainingDate: "",
         email: "",
-
-    });
-  } catch (err) {
-    toast.error(err.message || "Failed to issue certificate");
-    setActiveStep(0); // reset
-  } finally {
-    setLoading(false);
-  }
-};
-
-
+      });
+    } catch (err) {
+      toast.error(err.message || "Failed to issue certificate");
+      setActiveStep(0); // reset
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <form
@@ -119,24 +120,21 @@ const handleSubmit = async (e) => {
         required
       />
       {/* Email */}
-<Input
-  label="Email Address"
-  type="email"
-  value={form.email}
-  onChange={(v) => handleChange("email", v)}
-  required
-/>
-<p className="text-xs text-slate-500 mt-1">
-  Certificate download link will be sent to this email.
-</p>
-
-
+      <Input
+        label="Email Address"
+        type="email"
+        value={form.email}
+        onChange={(v) => handleChange("email", v)}
+        required
+      />
+      <p className="mt-2 inline-block rounded-md bg-slate-800 px-2 py-1 text-xs text-slate-200">
+        <span className="font-semibold text-red-400">Note:</span> Your
+        certificate will be sent to this email.
+      </p>
 
       {/* Class Name */}
       <div>
-        <label className="block text-sm text-slate-400 mb-1">
-          Class Name
-        </label>
+        <label className="block text-sm text-slate-400 mb-1">Class Name</label>
         <select
           value={form.className}
           onChange={(e) => handleChange("className", e.target.value)}
@@ -166,77 +164,67 @@ const handleSubmit = async (e) => {
       />
 
       {loading && (
-  <div className="bg-slate-900 border border-slate-700 rounded-lg p-4">
-    {/* CIRCLES + LINES */}
-    <div className="flex items-center">
-      {steps.map((step, index) => {
-        const isDone = index < activeStep;
-        const isActive = index === activeStep;
+        <div className="bg-slate-900 border border-slate-700 rounded-lg p-4">
+          {/* CIRCLES + LINES */}
+          <div className="flex items-center">
+            {steps.map((step, index) => {
+              const isDone = index < activeStep;
+              const isActive = index === activeStep;
 
-        const colors = [
-          "bg-blue-500",
-          "bg-yellow-500",
-          "bg-orange-500",
-          "bg-emerald-500",
-        ];
+              const colors = [
+                "bg-blue-500",
+                "bg-yellow-500",
+                "bg-orange-500",
+                "bg-emerald-500",
+              ];
 
-        return (
-          <div key={step} className="flex items-center flex-1">
-            {/* CIRCLE */}
-            <div
-              className={`w-4 h-4 rounded-full z-10 transition-all
-                ${
-                  isDone || isActive
-                    ? colors[index]
-                    : "bg-slate-600"
-                }
+              return (
+                <div key={step} className="flex items-center flex-1">
+                  {/* CIRCLE */}
+                  <div
+                    className={`w-4 h-4 rounded-full z-10 transition-all
+                ${isDone || isActive ? colors[index] : "bg-slate-600"}
                 ${isActive ? "animate-pulse scale-110" : ""}
               `}
-            />
-
-            {/* LINE (except after last circle) */}
-            {index !== steps.length - 1 && (
-              <div className="flex-1 mx-2">
-                <div className="h-0.5 bg-slate-700 relative overflow-hidden">
-                  <div
-                    className="h-0.5 bg-emerald-500 transition-all duration-700"
-                    style={{
-                      width:
-                        index < activeStep
-                          ? "100%"
-                          : "0%",
-                    }}
                   />
+
+                  {/* LINE (except after last circle) */}
+                  {index !== steps.length - 1 && (
+                    <div className="flex-1 mx-2">
+                      <div className="h-0.5 bg-slate-700 relative overflow-hidden">
+                        <div
+                          className="h-0.5 bg-emerald-500 transition-all duration-700"
+                          style={{
+                            width: index < activeStep ? "100%" : "0%",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              );
+            })}
           </div>
-        );
-      })}
-    </div>
 
-    {/* LABELS */}
-    <div className="flex justify-between mt-3 text-xs">
-      {steps.map((step, index) => (
-        <div
-          key={step}
-          className={`flex-1 text-center transition ${
-            index < activeStep
-              ? "text-emerald-400"
-              : index === activeStep
-              ? "text-white font-medium"
-              : "text-slate-500"
-          }`}
-        >
-          {step}
+          {/* LABELS */}
+          <div className="flex justify-between mt-3 text-xs">
+            {steps.map((step, index) => (
+              <div
+                key={step}
+                className={`flex-1 text-center transition ${
+                  index < activeStep
+                    ? "text-emerald-400"
+                    : index === activeStep
+                      ? "text-white font-medium"
+                      : "text-slate-500"
+                }`}
+              >
+                {step}
+              </div>
+            ))}
+          </div>
         </div>
-      ))}
-    </div>
-  </div>
-)}
-
-
-
+      )}
 
       {/* Submit */}
       <button
@@ -252,20 +240,12 @@ const handleSubmit = async (e) => {
 }
 
 /* ---------- INPUT COMPONENT ---------- */
-function Input({
-  label,
-  value,
-  onChange,
-  type = "text",
-  required = true,
-}) {
+function Input({ label, value, onChange, type = "text", required = true }) {
   const isDate = type === "date";
 
   return (
     <div>
-      <label className="block text-sm text-slate-400 mb-1">
-        {label}
-      </label>
+      <label className="block text-sm text-slate-400 mb-1">{label}</label>
 
       <div className="relative">
         <input
